@@ -61,17 +61,6 @@ const BrowseSeries = () => {
     setShowRecipeModal(true);
   };
 
-  const deleteActiveSession = async (seriesId, sessionId) => {
-    try {
-      await sessionAPI.delete(seriesId, sessionId);
-
-      // Refresh to show updated list
-      await fetchSeries();
-
-    } catch (error) {
-      console.error('Error deleting session:', error);
-    }
-  };
 
   const handleNewSessionClick = (seriesData) => {
     // Check if there's already an active session

@@ -318,15 +318,15 @@ const StudySession = () => {
 
   return (
     <div className="study-container">
-      {/* Timer at top */}
-      <div className="timer-section">
-        <div className="timer">{formatTime(elapsedTime)}</div>
-      </div>
-
-      {/* Progress indicator */}
-      <div className="progress-section">
-        <div className="progress-numbers">
-          {currentCardIndex + 1} / {cards.length}
+      {/* Header section */}
+      <div className="study-header">
+        <div className="timer-section">
+          <div className="timer">{formatTime(elapsedTime)}</div>
+        </div>
+        <div className="progress-section">
+          <div className="progress-numbers">
+            {currentCardIndex + 1} / {cards.length}
+          </div>
         </div>
       </div>
 
