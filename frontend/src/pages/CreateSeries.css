@@ -367,7 +367,7 @@
 
 .card-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
 }
@@ -475,4 +475,35 @@
   .start-btn-minimal {
     padding: 8px 20px;
   }
+}
+
+/* MCQ-specific styles */
+.mcq-meta {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.6);
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
+}
+
+.mcq-options-preview {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.option-preview {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 4px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.more-options {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+  font-style: italic;
+  margin-top: 4px;
 }
