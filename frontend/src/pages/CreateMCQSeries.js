@@ -443,24 +443,14 @@ const CreateMCQSeries = () => {
                 className="card-checkbox"
                 onClick={(e) => e.stopPropagation()}
               />
-              <div className="mcq-meta">
-                ID: {mcq.questionId} • {mcq.subject}
-              </div>
             </div>
             <div className="card-content">
-              <h3 className="card-front">{mcq.question}</h3>
-              <div className="mcq-options-preview">
-                {Object.entries(mcq.options).slice(0, 2).map(([key, option]) => (
-                  <div key={key} className="option-preview">
-                    {key}. {option.text.substring(0, 30)}...
-                  </div>
-                ))}
-                {Object.keys(mcq.options).length > 2 && (
-                  <div className="more-options">
-                    +{Object.keys(mcq.options).length - 2} more options
-                  </div>
-                )}
-              </div>
+              <h3 className="card-front">
+                {mcq.question.length > 60
+                  ? mcq.question.substring(0, 60) + '...'
+                  : mcq.question
+                }
+              </h3>
             </div>
           </div>
         ))

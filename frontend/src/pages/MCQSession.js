@@ -63,7 +63,7 @@ const MCQSession = () => {
 
       // Use exact same logic as CreateMCQSeries -> MCQSession
       const response = await mcqAPI.getByIds(selectedQuestions);
-      const mcqs = response.data.data;
+      const mcqs = response.data; // MCQ API returns data directly
 
       setSeriesId(sessionInfo.seriesId);
       setSessionId(sessionInfo.sessionId); // Use existing session
@@ -82,9 +82,10 @@ const MCQSession = () => {
   const initializeSession = async (seriesInfo) => {
     try {
       setLoading(true);
+      console.log('MCQ Session initializing with:', seriesInfo);
 
       const response = await mcqAPI.getByIds(seriesInfo.selectedQuestions);
-      const mcqs = response.data.data;
+      const mcqs = response.data; // MCQ API returns data directly, not nested
 
       setSeriesId(seriesInfo.seriesId);
       setSessionId(seriesInfo.sessionId); // Session already created
@@ -93,7 +94,8 @@ const MCQSession = () => {
 
     } catch (error) {
       console.error('Error initializing session:', error);
-      setError('Failed to start study session');
+      console.error('Error details:', error.response?.data);
+      setError(`Failed to start study session: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -101,27 +103,26 @@ const MCQSession = () => {
 
   const handleConfidenceSelect = (level) => {
     setConfidence(level);
+    // Auto-show answer if all requirements are met
+    if (selectedAnswer && difficulty && level) {
+      setTimeout(() => setShowingAnswer(true), 300);
+    }
   };
 
   const handleDifficultySelect = (level) => {
     setDifficulty(level);
+    // Auto-show answer if all requirements are met
+    if (selectedAnswer && confidence && level) {
+      setTimeout(() => setShowingAnswer(true), 300);
+    }
   };
 
   const handleAnswerSelect = (answer) => {
     setSelectedAnswer(answer);
-  };
-
-  const handleShowAnswer = () => {
-    if (!selectedAnswer) {
-      setError('Please select an answer first');
-      return;
+    // Automatically show answer when an option is selected and confidence/difficulty are set
+    if (confidence && difficulty) {
+      setTimeout(() => setShowingAnswer(true), 300);
     }
-    if (!confidence || !difficulty) {
-      setError('Please select confidence and difficulty');
-      return;
-    }
-    setError('');
-    setShowingAnswer(true);
   };
 
   const handleResult = async () => {
@@ -233,7 +234,7 @@ const MCQSession = () => {
     );
   }
 
-  if (questions.length === 0) {
+  if (!questions || questions.length === 0) {
     return (
       <div className="mcq-empty">
         <div className="empty-text">No questions to study</div>
@@ -244,8 +245,8 @@ const MCQSession = () => {
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const currentQuestion = questions?.[currentQuestionIndex];
+  const progress = questions?.length ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -359,7 +360,7 @@ const MCQSession = () => {
         </div>
         <div className="progress-section">
           <div className="progress-numbers">
-            {currentQuestionIndex + 1} / {questions.length}
+            {currentQuestionIndex + 1} / {questions?.length || 0}
           </div>
         </div>
       </div>
@@ -367,17 +368,17 @@ const MCQSession = () => {
       {/* Question section */}
       <div className="question-section">
         <div className="question-meta">
-          ID: {currentQuestion.questionId} • {currentQuestion.subject}
+          ID: {currentQuestion?.questionId} • {currentQuestion?.subject}
         </div>
 
         <div className={`floating-content ${isTransitioning ? 'question-transition-out' : 'question-transition-in'}`}>
           <div className="question-text">
-            {currentQuestion.question}
+            {currentQuestion?.question}
           </div>
 
           {/* Answer options */}
           <div className="answer-options">
-            {Object.entries(currentQuestion.options).map(([key, option]) => (
+            {currentQuestion?.options && Object.entries(currentQuestion.options).map(([key, option]) => (
               <button
                 key={key}
                 className={`option-btn ${selectedAnswer === key ? 'selected' : ''} ${
@@ -458,13 +459,6 @@ const MCQSession = () => {
             </div>
           </div>
 
-          <button
-            onClick={handleShowAnswer}
-            disabled={!selectedAnswer || !confidence || !difficulty}
-            className="show-answer-btn"
-          >
-            Show Answer
-          </button>
         </div>
       ) : (
         <div className="result-controls">
@@ -475,7 +469,7 @@ const MCQSession = () => {
               onClick={handleResult}
               title="Continue to next question"
             >
-              {currentQuestionIndex + 1 < questions.length ? 'Next Question →' : 'Finish Session →'}
+              {currentQuestionIndex + 1 < (questions?.length || 0) ? 'Next Question →' : 'Finish Session →'}
             </button>
           </div>
         </div>
