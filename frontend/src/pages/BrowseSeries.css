@@ -1,0 +1,448 @@
+.browse-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 15px;
+  margin: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.browse-loading {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 0;
+}
+
+.loading-text {
+  font-size: 1.5rem;
+  color: white;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
+.browse-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 20px;
+}
+
+.back-btn {
+  padding: 10px 20px;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.9);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.2);
+  transform: translateY(-1px);
+}
+
+.header-content h1 {
+  font-size: 2.5rem;
+  color: white;
+  margin: 0 0 10px 0;
+  font-family: 'Courier New', monospace;
+  font-weight: 200;
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(255,255,255,0.3);
+}
+
+.header-content p {
+  color: rgba(255,255,255,0.8);
+  font-size: 1.1rem;
+  margin: 0;
+  font-family: 'Courier New', monospace;
+}
+
+.search-section {
+  width: 100%;
+  padding: 0 20px;
+  margin-bottom: 30px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 15px 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  background: white;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+}
+
+.series-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.empty-text {
+  font-size: 1.3rem;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 25px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
+.create-series-btn {
+  padding: 12px 24px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 400;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+  transition: all 0.3s;
+}
+
+.create-series-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255,255,255,0.2);
+  text-shadow: 0 0 15px rgba(255,255,255,0.5);
+}
+
+/* Full Width Series Cards - Minimal */
+.series-card {
+  background: transparent;
+  border-radius: 0;
+  padding: 15px 0;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s;
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+.series-card:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.series-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 20px;
+}
+
+.series-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.series-title {
+  font-size: 1.4rem;
+  font-weight: 400;
+  color: white;
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+  display: inline;
+}
+
+.series-meta {
+  display: inline-flex;
+  gap: 15px;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.85rem;
+  font-family: 'Courier New', monospace;
+  margin-left: 5px;
+}
+
+.series-status {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.series-status.active {
+  background-color: #e7f3ff;
+  color: #0066cc;
+  border: 1px solid #b3d9ff;
+}
+
+.series-status.completed {
+  background-color: #e8f5e8;
+  color: #006600;
+  border: 1px solid #b3e6b3;
+}
+
+/* Sessions Container - Minimal Design */
+.sessions-container {
+  margin-top: 10px;
+}
+
+.sessions-label {
+  color: rgba(255,255,255,0.8);
+  font-size: 1rem;
+  font-weight: 300;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+  margin: 0 0 20px 0;
+}
+
+.sessions-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+/* Session Squares - Minimal Design */
+.session-square {
+  width: 200px;
+  height: 180px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  font-weight: 500;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  padding: 10px;
+  text-align: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.05);
+  box-sizing: border-box;
+}
+
+.session-square.completed {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: white;
+}
+
+.session-square.completed:hover {
+  background-color: #1e7e34;
+  transform: scale(1.05);
+}
+
+.session-square.active {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+
+.session-square.active:hover {
+  background-color: #0056b3;
+  transform: scale(1.1);
+  box-shadow: 0 4px 15px rgba(0,123,255,0.4);
+}
+
+.session-square.empty {
+  background: rgba(255,255,255,0.05);
+  border: 2px dashed rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+}
+
+.session-number {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: white;
+  font-family: 'Courier New', monospace;
+}
+
+.session-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  flex: 1;
+}
+
+.stat-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  padding: 2px 4px;
+  background-color: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  margin-bottom: 2px;
+}
+
+.stat-label {
+  font-weight: 500;
+  opacity: 1;
+  color: white;
+  font-size: 0.65rem;
+  text-shadow: 0 0 8px rgba(255,255,255,0.4);
+}
+
+.stat-value {
+  font-weight: 600;
+  color: white;
+  font-size: 0.8rem;
+  text-shadow: 0 0 10px rgba(255,255,255,0.5);
+}
+
+.session-status-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+}
+
+.continue-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 0 10px rgba(255,255,255,0.5);
+  text-align: center;
+}
+
+.session-meta {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: white;
+  opacity: 0.9;
+  text-shadow: 0 0 8px rgba(255,255,255,0.3);
+  text-align: center;
+}
+
+.session-continue-indicator {
+  margin-top: 8px;
+  padding: 6px;
+  background-color: rgba(255,255,255,0.2);
+  border-radius: 6px;
+  border: 1px dashed rgba(255,255,255,0.5);
+}
+
+.session-continue-indicator .continue-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+  color: rgba(255,255,255,0.8);
+  font-weight: 300;
+}
+
+.empty-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+  opacity: 0.9;
+  margin-bottom: 4px;
+  text-shadow: 0 0 8px rgba(255,255,255,0.3);
+  font-family: 'Courier New', monospace;
+}
+
+.empty-subtext {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: white;
+  opacity: 0.8;
+  text-shadow: 0 0 8px rgba(255,255,255,0.3);
+  font-family: 'Courier New', monospace;
+}
+
+.generated-indicator {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 12px;
+  height: 12px;
+  background-color: #ffc107;
+  border-radius: 50%;
+  font-size: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.edit-session-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background-color: #007bff;
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.edit-session-btn:hover {
+  background-color: #0056b3;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0,123,255,0.4);
+}
+
+@media (max-width: 768px) {
+  .browse-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .series-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sessions-grid {
+    justify-content: center;
+  }
+
+  .session-square {
+    width: 200px;
+    height: 160px;
+  }
+}
