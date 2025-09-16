@@ -3,7 +3,7 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 
 const getAllFlashcards = asyncHandler(async (req, res) => {
   const { page, limit, skip } = req.pagination || { page: 1, limit: 10, skip: 0 };
-  const { search, subject, difficulty } = req.query;
+  const { search, subject } = req.query;
 
   let query = {};
 

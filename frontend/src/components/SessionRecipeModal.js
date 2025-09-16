@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { flashcardAPI } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
 import './SessionRecipeModal.css';
 
 const SessionRecipeModal = ({ isOpen, onClose, onCreateSession, seriesData }) => {
@@ -13,7 +12,7 @@ const SessionRecipeModal = ({ isOpen, onClose, onCreateSession, seriesData }) =>
   const [selectedCards, setSelectedCards] = useState([]);
   const [filteredCards, setFilteredCards] = useState([]);
 
-  const getMatchingCards = () => {
+  const getMatchingCards = useCallback(() => {
     if (!seriesData?.sessions) return [];
 
     const allCards = [];
@@ -56,7 +55,7 @@ const SessionRecipeModal = ({ isOpen, onClose, onCreateSession, seriesData }) =>
       }
       return true;
     });
-  };
+  }, [filters, seriesData]);
 
   useEffect(() => {
     if (seriesData && isOpen) {

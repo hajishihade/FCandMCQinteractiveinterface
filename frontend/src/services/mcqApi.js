@@ -146,8 +146,10 @@ export const mcqSeriesAPI = MCQSeriesApiService;
 export const mcqSessionAPI = MCQSessionApiService;
 
 // Default export with all services
-export default {
+const mcqApiDefault = {
   mcq: MCQApiService,
   series: MCQSeriesApiService,
   session: MCQSessionApiService
 };
+
+export default mcqApiDefault;

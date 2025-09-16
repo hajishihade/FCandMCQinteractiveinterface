@@ -28,7 +28,9 @@ const flashcardSchema = new mongoose.Schema({
     type: String
   }],
   cardId: {
-    type: Number
+    type: Number,
+    unique: true,
+    index: true
   }
 }, {
   timestamps: true,

@@ -45,21 +45,17 @@ const MCQSession = () => {
   const continueExistingSession = async (sessionInfo) => {
     try {
       setLoading(true);
-      console.log('Continuing MCQ session with:', sessionInfo);
 
       // Get the series data to find which questions to continue with
       const seriesResponse = await mcqSeriesAPI.getById(sessionInfo.seriesId);
-      console.log('Series response:', seriesResponse);
 
       const session = seriesResponse.data.data.sessions.find(s => s.sessionId === sessionInfo.sessionId);
-      console.log('Found session:', session);
 
       // Use the existing session's questions
       const selectedQuestions = session.questions && session.questions.length > 0
         ? session.questions.map(q => q.questionId)
         : [1, 2, 3]; // Fallback to some questions if empty
 
-      console.log('Selected questions for continue:', selectedQuestions);
 
       // Use exact same logic as CreateMCQSeries -> MCQSession
       const response = await mcqAPI.getByIds(selectedQuestions);
@@ -82,7 +78,6 @@ const MCQSession = () => {
   const initializeSession = async (seriesInfo) => {
     try {
       setLoading(true);
-      console.log('MCQ Session initializing with:', seriesInfo);
 
       const response = await mcqAPI.getByIds(seriesInfo.selectedQuestions);
       const mcqs = response.data; // MCQ API returns data directly, not nested
@@ -193,17 +188,6 @@ const MCQSession = () => {
     setElapsedTime(0);
   };
 
-  const finishSession = async () => {
-    try {
-      await mcqSessionAPI.complete(seriesId, sessionId);
-      alert('Session completed successfully!');
-      navigate('/');
-    } catch (error) {
-      console.error('Error completing session:', error);
-      alert('Session finished but there was an error saving. Returning home...');
-      navigate('/');
-    }
-  };
 
   const finishSessionWithSummary = async () => {
     try {
@@ -246,7 +230,6 @@ const MCQSession = () => {
   }
 
   const currentQuestion = questions?.[currentQuestionIndex];
-  const progress = questions?.length ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);

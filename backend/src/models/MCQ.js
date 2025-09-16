@@ -67,8 +67,7 @@ const MCQSchema = new mongoose.Schema({
     index: true
   },
   tags: [{
-    type: String,
-    index: true
+    type: String
   }],
 
   // Additional metadata

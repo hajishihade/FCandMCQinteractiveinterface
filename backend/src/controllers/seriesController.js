@@ -69,7 +69,7 @@ const createSeries = asyncHandler(async (req, res) => {
   });
 });
 
-const getSeries = async (req, res) => {
+const getSeries = asyncHandler(async (req, res) => {
   try {
     const { seriesId } = req.params;
 
@@ -94,9 +94,9 @@ const getSeries = async (req, res) => {
       message: 'Internal server error'
     });
   }
-};
+});
 
-const startSession = async (req, res) => {
+const startSession = asyncHandler(async (req, res) => {
   try {
     const { seriesId } = req.params;
     const { cardIds, generatedFrom = null } = req.body;
@@ -178,9 +178,9 @@ const startSession = async (req, res) => {
       message: 'Internal server error'
     });
   }
-};
+});
 
-const recordInteraction = async (req, res) => {
+const recordInteraction = asyncHandler(async (req, res) => {
   try {
     const { seriesId, sessionId } = req.params;
     const { cardId, result, difficulty, confidenceWhileSolving, timeSpent } = req.body;
@@ -242,9 +242,9 @@ const recordInteraction = async (req, res) => {
       message: 'Internal server error'
     });
   }
-};
+});
 
-const completeSession = async (req, res) => {
+const completeSession = asyncHandler(async (req, res) => {
   try {
     const { seriesId, sessionId } = req.params;
 
@@ -295,9 +295,9 @@ const completeSession = async (req, res) => {
       message: 'Internal server error'
     });
   }
-};
+});
 
-const deleteSession = async (req, res) => {
+const deleteSession = asyncHandler(async (req, res) => {
   try {
     const { seriesId, sessionId } = req.params;
 
@@ -364,9 +364,9 @@ const deleteSession = async (req, res) => {
       message: 'Internal server error'
     });
   }
-};
+});
 
-const deleteSeries = async (req, res) => {
+const deleteSeries = asyncHandler(async (req, res) => {
   try {
     const { seriesId } = req.params;
 
@@ -396,9 +396,9 @@ const deleteSeries = async (req, res) => {
       message: 'Internal server error'
     });
   }
-};
+});
 
-const completeSeries = async (req, res) => {
+const completeSeries = asyncHandler(async (req, res) => {
   try {
     const { seriesId } = req.params;
 
@@ -438,7 +438,7 @@ const completeSeries = async (req, res) => {
       message: 'Internal server error'
     });
   }
-};
+});
 
 export {
   getAllSeries,

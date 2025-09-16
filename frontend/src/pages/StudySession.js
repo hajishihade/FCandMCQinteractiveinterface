@@ -171,17 +171,6 @@ const StudySession = () => {
     setElapsedTime(0);
   };
 
-  const finishSession = async () => {
-    try {
-      await sessionAPI.complete(seriesId, sessionId);
-      alert('Session completed successfully!');
-      navigate('/');
-    } catch (error) {
-      console.error('Error completing session:', error);
-      alert('Session finished but there was an error saving. Returning home...');
-      navigate('/');
-    }
-  };
 
   const finishSessionWithSummary = async () => {
     try {
@@ -224,7 +213,6 @@ const StudySession = () => {
   }
 
   const currentCard = cards[currentCardIndex];
-  const progress = ((currentCardIndex + 1) / cards.length) * 100;
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);

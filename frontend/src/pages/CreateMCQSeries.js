@@ -166,7 +166,6 @@ const CreateMCQSeries = () => {
       const seriesId = seriesResponse.data.seriesId;
 
       // Step 2: Automatically create first session with selected questions
-      console.log('Creating session with questions:', selectedQuestions);
       const sessionResponse = await mcqSessionAPI.start(seriesId, selectedQuestions);
       const sessionId = sessionResponse.data.sessionId;
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mcqSeriesAPI, mcqSessionAPI } from '../services/mcqApi';
+import { mcqSeriesAPI } from '../services/mcqApi';
 import './BrowseSeries.css';
 
 const BrowseMCQSeries = () => {
