@@ -135,8 +135,16 @@ const CreateSeries = () => {
   };
 
   const handleCreateSeries = async () => {
-    if (!seriesTitle.trim()) {
+    const trimmedTitle = seriesTitle.trim();
+
+    // Basic input validation to prevent data corruption
+    if (!trimmedTitle) {
       setError('Please enter a series title');
+      return;
+    }
+
+    if (trimmedTitle.length > 100) {
+      setError('Series title must be 100 characters or less');
       return;
     }
 
@@ -150,7 +158,7 @@ const CreateSeries = () => {
 
     try {
       // Step 1: Create the series
-      const seriesResponse = await seriesAPI.create(seriesTitle.trim());
+      const seriesResponse = await seriesAPI.create(trimmedTitle);
       const seriesId = seriesResponse.data.data.seriesId;
 
       // Step 2: Automatically create first session with selected cards
@@ -263,7 +271,7 @@ const CreateSeries = () => {
     <div className="create-series-container">
       <div className="create-series-header">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/browse-series')}
           className="back-btn"
         >
           ←

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:9999/api';
 
 // MCQ API Service - Completely separate from flashcard API
 class MCQApiService {
@@ -94,9 +94,14 @@ class MCQSeriesApiService {
 class MCQSessionApiService {
 
   static async start(seriesId, questionIds, generatedFrom = null) {
+    // Ensure questionIds is an array
+    if (!Array.isArray(questionIds)) {
+      throw new Error('questionIds must be an array');
+    }
+
     const response = await axios.post(`${API_BASE}/mcq-series/${seriesId}/sessions`, {
-      questionIds,
-      generatedFrom
+      questionIds: questionIds,
+      generatedFrom: generatedFrom
     });
     return response.data;
   }

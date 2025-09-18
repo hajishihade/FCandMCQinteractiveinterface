@@ -11,6 +11,7 @@ const SessionRecipeModal = ({ isOpen, onClose, onCreateSession, seriesData }) =>
 
   const [selectedCards, setSelectedCards] = useState([]);
   const [filteredCards, setFilteredCards] = useState([]);
+  const [isCreating, setIsCreating] = useState(false);
 
   const getMatchingCards = useCallback(() => {
     if (!seriesData?.sessions) return [];
@@ -113,6 +114,8 @@ const SessionRecipeModal = ({ isOpen, onClose, onCreateSession, seriesData }) =>
       return;
     }
 
+    setIsCreating(true); // Show loading state
+
     if (seriesData?.editingSessionId) {
       // Edit mode - pass the sessionId to update
       onCreateSession(selectedCards, seriesData.editingSessionId);
@@ -121,7 +124,7 @@ const SessionRecipeModal = ({ isOpen, onClose, onCreateSession, seriesData }) =>
       onCreateSession(selectedCards);
     }
 
-    onClose();
+    // Note: onClose() will be called by parent after session creation
   };
 
   if (!isOpen) return null;
@@ -277,8 +280,15 @@ const SessionRecipeModal = ({ isOpen, onClose, onCreateSession, seriesData }) =>
           </div>
           <div className="footer-right">
             <button className="cancel-btn" onClick={onClose}>Cancel</button>
-            <button className="create-btn" onClick={handleCreateSession} disabled={selectedCards.length === 0}>
-              {seriesData?.editingSessionId ? `Update Session (${selectedCards.length} cards)` : `Create Session (${selectedCards.length} cards)`}
+            <button
+              className="create-btn"
+              onClick={handleCreateSession}
+              disabled={selectedCards.length === 0 || isCreating}
+            >
+              {isCreating
+                ? (seriesData?.editingSessionId ? 'Updating...' : 'Creating...')
+                : (seriesData?.editingSessionId ? `Update Session (${selectedCards.length} cards)` : `Create Session (${selectedCards.length} cards)`)
+              }
             </button>
           </div>
         </div>

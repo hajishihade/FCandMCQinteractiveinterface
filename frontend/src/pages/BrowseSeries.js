@@ -1,25 +1,39 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { seriesAPI, sessionAPI } from '../services/api';
 import SessionRecipeModal from '../components/SessionRecipeModal';
+import SessionStatsModal from '../components/SessionStatsModal';
 import './BrowseSeries.css';
+
+// Constants
+const SERIES_FETCH_LIMIT = 50;
 
 const BrowseSeries = () => {
   const navigate = useNavigate();
   const [series, setSeries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showRecipeModal, setShowRecipeModal] = useState(false);
-  const [selectedSeries, setSelectedSeries] = useState(null);
+  const [modalState, setModalState] = useState({
+    type: null, // 'recipe' | 'stats' | null
+    isOpen: false,
+    selectedSeries: null,
+    selectedSession: null
+  });
 
   const fetchSeries = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { limit: 50 };
+      const response = await seriesAPI.getAll({ limit: SERIES_FETCH_LIMIT });
 
-      const response = await seriesAPI.getAll(params);
-      setSeries(response.data.data);
+      // Validate API response structure to prevent crashes
+      if (response && response.data && Array.isArray(response.data.data)) {
+        setSeries(response.data.data);
+      } else {
+        console.error('Invalid API response format:', response);
+        setSeries([]); // Safe fallback
+      }
     } catch (error) {
-      console.error('Error fetching series:', error);
+      console.error('Failed to fetch series:', error);
+      setSeries([]); // Safe fallback prevents crashes
     } finally {
       setLoading(false);
     }
@@ -29,270 +43,269 @@ const BrowseSeries = () => {
     fetchSeries();
   }, [fetchSeries]);
 
-  const handleSessionClick = (seriesId, sessionId, sessionStatus) => {
-    if (sessionStatus === 'completed') {
-      alert(`Session ${sessionId} is completed. Stats are displayed in the square.`);
-      return;
-    }
-
+  const handleSessionClick = useCallback((seriesId, sessionId, sessionStatus, session, seriesItem) => {
     if (sessionStatus === 'active') {
-      // Continue studying
       navigate('/study', {
-        state: {
-          seriesId,
-          sessionId,
-          mode: 'continue'
-        }
+        state: { seriesId, sessionId, mode: 'continue' }
+      });
+    } else if (sessionStatus === 'completed') {
+      setModalState({
+        type: 'stats',
+        isOpen: true,
+        selectedSeries: seriesItem,
+        selectedSession: session
       });
     }
-  };
+  }, [navigate]);
 
-  const editActiveSession = (seriesData, sessionId) => {
-    // Find the session and get its cards (now includes all cards from creation)
-    const session = seriesData.sessions.find(s => s.sessionId === sessionId);
-    const existingCardIds = session?.cards?.map(card => card.cardId) || [];
-
-    // Pass the existing session data to the modal
-    setSelectedSeries({
-      ...seriesData,
-      editingSessionId: sessionId,
-      existingCards: existingCardIds
+  const handleNewSession = useCallback((seriesId, seriesData) => {
+    setModalState({
+      type: 'recipe',
+      isOpen: true,
+      selectedSeries: seriesData,
+      selectedSession: null
     });
-    setShowRecipeModal(true);
-  };
+  }, []);
 
+  const handleEditSession = useCallback((seriesId, session, seriesData, e) => {
+    e.stopPropagation(); // Prevent session click
+    const sessionCards = session.cards?.map(card => card.cardId) || [];
 
-  const handleNewSessionClick = (seriesData) => {
-    // Check if there's already an active session
-    const hasActiveSession = seriesData.sessions.some(s => s.status === 'active');
+    setModalState({
+      type: 'recipe',
+      isOpen: true,
+      selectedSeries: {
+        ...seriesData,
+        editingSessionId: session.sessionId,
+        existingCards: sessionCards
+      },
+      selectedSession: session
+    });
+  }, []);
 
-    if (hasActiveSession) {
-      alert('Please complete the current active session before creating a new one.');
-      return;
-    }
-
-    setSelectedSeries(seriesData);
-    setShowRecipeModal(true);
-  };
-
-  const handleCreateCustomSession = async (cardIds, sessionId = null, action = 'create') => {
+  const handleCreateCustomSession = useCallback(async (cardIds, sessionId = null, action = 'create') => {
     try {
-      if (action === 'delete') {
+      if (action === 'delete' && sessionId) {
         // Delete session
-        await sessionAPI.delete(selectedSeries._id, sessionId);
-        await fetchSeries();
-        return;
+        await sessionAPI.delete(modalState.selectedSeries._id, sessionId);
+        fetchSeries();
+      } else if (sessionId) {
+        // Update existing session - delete and recreate
+        await sessionAPI.delete(modalState.selectedSeries._id, sessionId);
+        if (cardIds.length > 0) {
+          const response = await sessionAPI.start(modalState.selectedSeries._id, cardIds, sessionId);
+
+          navigate('/study', {
+            state: {
+              seriesId: modalState.selectedSeries._id,
+              sessionId: response.data.data.sessionId,
+              selectedCards: cardIds
+            }
+          });
+        } else {
+          fetchSeries(); // Just refresh if no cards selected
+        }
+      } else {
+        // Create new session
+        const response = await sessionAPI.start(modalState.selectedSeries._id, cardIds);
+
+        navigate('/study', {
+          state: {
+            seriesId: modalState.selectedSeries._id,
+            sessionId: response.data.data.sessionId,
+            selectedCards: cardIds
+          }
+        });
       }
-
-      if (sessionId) {
-        // Edit mode - update existing session
-        // For now, we'll delete the old session and create a new one
-        await sessionAPI.delete(selectedSeries._id, sessionId);
-      }
-
-      // Create new session (for both create and edit modes)
-      const lastSessionId = selectedSeries.sessions.length > 0
-        ? Math.max(...selectedSeries.sessions.map(s => s.sessionId))
-        : null;
-
-      await sessionAPI.start(selectedSeries._id, cardIds, lastSessionId);
-
-      // Refresh series list to show updated session
-      await fetchSeries();
-
     } catch (error) {
-      console.error('Error with session operation:', error);
+      alert('Failed to update session. Please try again.');
     }
-  };
+    closeModal();
+  }, [modalState.selectedSeries, navigate, fetchSeries]);
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const closeModal = useCallback(() => {
+    setModalState({ type: null, isOpen: false, selectedSeries: null, selectedSession: null });
+  }, []);
 
-  const calculateSessionStats = (session) => {
-    if (!session.cards || session.cards.length === 0) {
-      return {
-        correctCount: 0,
-        totalCards: 0,
-        avgTime: 0,
-        totalTime: 0,
-        successRate: 0,
-        completedCards: 0,
-        formattedTotalTime: '0s'
-      };
-    }
 
-    // Filter cards that have interactions (not null)
-    const cardsWithInteractions = session.cards.filter(card => card.interaction && card.interaction.result);
+  // No-op function to avoid creating new functions on each render
+  const noOp = useCallback(() => {}, []);
 
-    const correctCount = cardsWithInteractions.filter(card => card.interaction.result === 'Right').length;
-    const totalCards = session.cards.length; // Total cards in session
-    const completedCards = cardsWithInteractions.length; // Cards with interactions
-    const totalTime = cardsWithInteractions.reduce((sum, card) => sum + card.interaction.timeSpent, 0);
-    const avgTime = completedCards > 0 ? Math.round(totalTime / completedCards) : 0;
-    const successRate = completedCards > 0 ? Math.round((correctCount / completedCards) * 100) : 0;
-
-    const formattedTotalTime = totalTime >= 60
-      ? `${Math.floor(totalTime / 60)}m ${totalTime % 60}s`
-      : `${totalTime}s`;
-
-    return {
-      correctCount,
-      totalCards,
-      avgTime,
-      totalTime,
-      formattedTotalTime,
-      successRate,
-      completedCards
-    };
-  };
+  // Pre-process expensive calculations once instead of in render loop
+  const processedSeries = useMemo(() =>
+    series.map(seriesItem => ({
+      ...seriesItem,
+      completedCount: seriesItem.sessions.filter(s => s.status === 'completed').length,
+      activeSession: seriesItem.sessions.find(s => s.status === 'active')
+    })), [series]
+  );
 
   if (loading) {
     return (
       <div className="browse-loading">
-        <div className="loading-text">Loading your series...</div>
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+
+  if (series.length === 0) {
+    return (
+      <div className="browse-container">
+        <h1 className="page-title">Your Study Series</h1>
+
+        <div className="mode-toggle">
+          <button
+            className="toggle-btn active"
+            onClick={noOp}
+          >
+            Flashcards
+          </button>
+          <button
+            className="toggle-btn"
+            onClick={() => navigate('/browse-mcq-series')}
+          >
+            MCQ
+          </button>
+        </div>
+
+        <div className="empty-container">
+          <h2>No Series Yet</h2>
+          <p>Create your first flashcard series to start studying</p>
+          <button onClick={() => navigate('/create-series')} className="primary-btn">
+            Create Flashcard Series
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="browse-container">
-      <div className="browse-header">
+      <h1 className="page-title">Your Study Series</h1>
+
+      <div className="mode-toggle">
         <button
-          onClick={() => navigate('/')}
-          className="back-btn"
+          className="toggle-btn active"
+          onClick={() => {}}
         >
-          ←
+          Flashcards
+        </button>
+        <button
+          className="toggle-btn"
+          onClick={() => navigate('/browse-mcq-series')}
+        >
+          MCQ
         </button>
       </div>
 
-      <div className="series-list">
-        {series.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-text">
-              No series created yet
-            </div>
-            <button
-              onClick={() => navigate('/create-series')}
-              className="create-series-btn"
-            >
-              Create Your First Series
-            </button>
-          </div>
-        ) : (
-          series.map((seriesItem) => (
-            <div key={seriesItem._id} className="series-card">
-              <div className="series-header">
-                <div className="series-title-group">
-                  <h3 className="series-title">{seriesItem.title}</h3>
-                  <div className="series-meta">
-                    <span>started: {formatDate(seriesItem.startedAt)}</span>
-                    <span>sessions: {seriesItem.completedSessions || 0}/{seriesItem.sessionCount}</span>
-                  </div>
-                </div>
-              </div>
+      <div className="create-new-section">
+        <button onClick={() => navigate('/create-series')} className="create-new-btn">
+          + Create New Flashcard Series
+        </button>
+      </div>
 
-              <div className="sessions-container">
-                <div className="sessions-grid">
-                  {seriesItem.sessions.map((session) => {
-                    const sessionStats = calculateSessionStats(session);
+      {processedSeries.length > 0 && <div className="series-divider"></div>}
+
+      <div className="series-list">
+        {processedSeries.map((seriesItem, index) => {
+          const { sessions, _id: seriesId, title, status, completedCount, activeSession } = seriesItem;
+
+          return (
+            <React.Fragment key={seriesId}>
+              {index > 0 && <div className="series-divider"></div>}
+
+              <div className="series-item">
+                <div className="series-header">
+                  <h2>{title} <span className="series-progress">({completedCount}/{sessions.length})</span></h2>
+                </div>
+
+                <div className="sessions-row">
+                  {sessions.map((session) => {
+                    // Calculate comprehensive session stats
+                    const cards = session.cards || [];
+                    const completedCards = cards.filter(card => card.interaction).length;
+                    const correctCards = cards.filter(card => card.interaction?.result === 'Right').length;
+                    const accuracy = completedCards > 0 ? Math.round((correctCards / completedCards) * 100) : 0;
+
+                    const totalTime = cards.reduce((sum, card) => sum + (card.interaction?.timeSpent || 0), 0);
+                    const avgTime = completedCards > 0 ? Math.round(totalTime / completedCards) : 0;
+
+
+                    const sessionDate = session.completedAt || session.startedAt;
+                    const dateStr = sessionDate ? new Date(sessionDate).toLocaleDateString() : '';
 
                     return (
-                      <div
-                        key={`${seriesItem._id}-${session.sessionId}`}
-                        className={`session-square ${session.status}`}
-                        onClick={() => handleSessionClick(seriesItem._id, session.sessionId, session.status)}
-                        title={`Session ${session.sessionId} - ${session.status}`}
+                      <button
+                        key={session.sessionId}
+                        className={`session-btn ${session.status}`}
+                        onClick={() => handleSessionClick(seriesId, session.sessionId, session.status, session, seriesItem)}
+                        title={session.status === 'completed' ? 'Click to view stats' : session.status === 'active' ? 'Click to continue' : ''}
                       >
                         <div className="session-number">#{session.sessionId}</div>
 
-                        {session.cards && session.cards.length > 0 ? (
+                        {session.status === 'completed' && (
                           <div className="session-stats">
-                            <div className="stat-line">
-                              <span className="stat-label">Cards:</span>
-                              <span className="stat-value">{sessionStats.totalCards}</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Finished:</span>
-                              <span className="stat-value">{sessionStats.completedCards}</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Score:</span>
-                              <span className="stat-value">{sessionStats.correctCount}/{sessionStats.totalCards}</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Success:</span>
-                              <span className="stat-value">{sessionStats.successRate}%</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Total Time:</span>
-                              <span className="stat-value">{sessionStats.formattedTotalTime}</span>
-                            </div>
-                            {session.status === 'active' && (
-                              <div className="session-continue-indicator">
-                                <div className="continue-text">← Click to Continue</div>
-                              </div>
-                            )}
+                            <span>{accuracy}% accuracy</span>
+                            <span>{completedCards}/{cards.length} cards</span>
+                            <span>{avgTime}s avg time</span>
+                            <span>{dateStr}</span>
                           </div>
-                        ) : (
-                          <div className="session-status-text">
-                            <div className="continue-text">Click to Continue</div>
-                            <div className="session-meta">Session {session.sessionId}</div>
-                            <div className="session-meta">Ready to start</div>
-                          </div>
-                        )}
-
-                        {session.generatedFrom && (
-                          <div className="generated-indicator">•</div>
                         )}
 
                         {session.status === 'active' && (
-                          <button
-                            className="edit-session-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              editActiveSession(seriesItem, session.sessionId);
-                            }}
-                            title="Edit session"
-                          >
-                            ✎
-                          </button>
+                          <>
+                            <div className="session-stats">
+                              <span>In Progress</span>
+                              <span>{completedCards}/{cards.length} done</span>
+                              {completedCards > 0 && <span>{accuracy}% so far</span>}
+                              {avgTime > 0 && <span>{avgTime}s avg</span>}
+                            </div>
+                            <button
+                              className="edit-session-btn"
+                              onClick={(e) => handleEditSession(seriesId, session, seriesItem, e)}
+                              title="Edit session - Add/Remove cards"
+                            >
+                              ⚙
+                            </button>
+                          </>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
 
-                  {seriesItem.status === 'active' &&
-                   seriesItem.sessions.length <= 8 &&
-                   !seriesItem.sessions.some(s => s.status === 'active') && (
-                    <div
-                      className="session-square empty"
-                      title="Create custom session"
-                      onClick={() => handleNewSessionClick(seriesItem)}
+                  {status === 'active' && !activeSession && (
+                    <button
+                      className="session-btn new"
+                      onClick={() => handleNewSession(seriesId, seriesItem)}
                     >
-                      <div className="empty-icon">+</div>
-                      <div className="empty-text">Custom Session</div>
-                      <div className="empty-subtext">Click to configure</div>
-                    </div>
+                      +
+                    </button>
                   )}
                 </div>
-
               </div>
-            </div>
-          ))
-        )}
+            </React.Fragment>
+          );
+        })}
       </div>
 
-      <SessionRecipeModal
-        isOpen={showRecipeModal}
-        onClose={() => setShowRecipeModal(false)}
-        onCreateSession={handleCreateCustomSession}
-        seriesData={selectedSeries}
-      />
+      {modalState.type === 'recipe' && (
+        <SessionRecipeModal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          onCreateSession={handleCreateCustomSession}
+          seriesData={modalState.selectedSeries}
+        />
+      )}
+
+      {modalState.type === 'stats' && (
+        <SessionStatsModal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          sessionData={modalState.selectedSession}
+          seriesTitle={modalState.selectedSeries?.title}
+          isFlashcard={true}
+        />
+      )}
     </div>
   );
 };

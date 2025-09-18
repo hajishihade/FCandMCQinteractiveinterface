@@ -1,22 +1,36 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mcqSeriesAPI } from '../services/mcqApi';
-import './BrowseSeries.css';
+import { mcqSeriesAPI, mcqSessionAPI } from '../services/mcqApi';
+import MCQSessionRecipeModal from '../components/MCQSessionRecipeModal';
+import SessionStatsModal from '../components/SessionStatsModal';
+import './BrowseMCQSeries.css';
 
 const BrowseMCQSeries = () => {
   const navigate = useNavigate();
   const [series, setSeries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [modalState, setModalState] = useState({
+    type: null, // 'recipe' | 'stats' | null
+    isOpen: false,
+    selectedSeries: null,
+    selectedSession: null
+  });
 
   const fetchSeries = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { limit: 50 };
+      const response = await mcqSeriesAPI.getAll({ limit: 50 });
 
-      const response = await mcqSeriesAPI.getAll(params);
-      setSeries(response.data);
+      // Validate API response structure to prevent crashes
+      if (response && response.data && Array.isArray(response.data)) {
+        setSeries(response.data);
+      } else {
+        console.error('Invalid MCQ API response format:', response);
+        setSeries([]); // Safe fallback
+      }
     } catch (error) {
-      console.error('Error fetching MCQ series:', error);
+      console.error('Failed to fetch MCQ series:', error);
+      setSeries([]); // Safe fallback prevents crashes
     } finally {
       setLoading(false);
     }
@@ -26,205 +40,262 @@ const BrowseMCQSeries = () => {
     fetchSeries();
   }, [fetchSeries]);
 
-  const handleSessionClick = (seriesId, sessionId, sessionStatus) => {
-    if (sessionStatus === 'completed') {
-      alert(`MCQ Session ${sessionId} is completed. Stats are displayed in the square.`);
-      return;
-    }
-
+  const handleSessionClick = useCallback((seriesId, sessionId, sessionStatus, session, seriesItem) => {
     if (sessionStatus === 'active') {
-      // Continue studying
       navigate('/mcq-study', {
-        state: {
-          seriesId,
-          sessionId,
-          mode: 'continue'
-        }
+        state: { seriesId, sessionId, mode: 'continue' }
+      });
+    } else if (sessionStatus === 'completed') {
+      setModalState({
+        type: 'stats',
+        isOpen: true,
+        selectedSeries: seriesItem,
+        selectedSession: session
       });
     }
-  };
+  }, [navigate]);
 
-  const handleNewSessionClick = (seriesData) => {
-    // Check if there's already an active session
-    const hasActiveSession = seriesData.sessions.some(s => s.status === 'active');
-
-    if (hasActiveSession) {
-      alert('Please complete the current active MCQ session before creating a new one.');
-      return;
-    }
-
-    // For now, redirect to create new series
-    alert('Create new MCQ session functionality would redirect to MCQ series creation. For now, use Create New MCQ Series from the dashboard.');
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+  const handleNewSession = useCallback((seriesId, seriesData) => {
+    setModalState({
+      type: 'recipe',
+      isOpen: true,
+      selectedSeries: seriesData,
+      selectedSession: null
     });
-  };
+  }, []);
 
-  const calculateSessionStats = (session) => {
-    if (!session.questions || session.questions.length === 0) {
-      return {
-        correctCount: 0,
-        totalQuestions: 0,
-        avgTime: 0,
-        totalTime: 0,
-        successRate: 0,
-        completedQuestions: 0,
-        formattedTotalTime: '0s'
-      };
+  const handleEditSession = useCallback((seriesId, session, seriesData, e) => {
+    e.stopPropagation();
+    const sessionQuestions = session.questions?.map(q => q.questionId) || [];
+
+    setModalState({
+      type: 'recipe',
+      isOpen: true,
+      selectedSeries: {
+        ...seriesData,
+        editingSessionId: session.sessionId,
+        existingQuestions: sessionQuestions
+      },
+      selectedSession: session
+    });
+  }, []);
+
+  const handleCreateCustomSession = useCallback(async (questionIds, sessionId = null, action = 'create') => {
+    try {
+      if (action === 'delete' && sessionId) {
+        await mcqSessionAPI.delete(modalState.selectedSeries._id, sessionId);
+        fetchSeries();
+      } else if (sessionId) {
+        await mcqSessionAPI.delete(modalState.selectedSeries._id, sessionId);
+        if (questionIds.length > 0) {
+          const response = await mcqSessionAPI.start(modalState.selectedSeries._id, questionIds);
+          navigate('/mcq-study', {
+            state: {
+              seriesId: modalState.selectedSeries._id,
+              sessionId: response.data.sessionId,
+              selectedQuestions: questionIds,
+              mode: 'new'
+            }
+          });
+        } else {
+          fetchSeries();
+        }
+      } else {
+        const response = await mcqSessionAPI.start(modalState.selectedSeries._id, questionIds);
+        navigate('/mcq-study', {
+          state: {
+            seriesId: modalState.selectedSeries._id,
+            sessionId: response.data.sessionId,
+            selectedQuestions: questionIds,
+            mode: 'new'
+          }
+        });
+      }
+    } catch (error) {
+      alert('Failed to update MCQ session. Please try again.');
     }
+    closeModal();
+  }, [modalState.selectedSeries, navigate, fetchSeries]);
 
-    // Filter questions that have interactions (not null)
-    const questionsWithInteractions = session.questions.filter(q => q.interaction && q.interaction.selectedAnswer);
+  const closeModal = useCallback(() => {
+    setModalState({ type: null, isOpen: false, selectedSeries: null, selectedSession: null });
+  }, []);
 
-    const correctCount = questionsWithInteractions.filter(q => q.interaction.isCorrect).length;
-    const totalQuestions = session.questions.length; // Total questions in session
-    const completedQuestions = questionsWithInteractions.length; // Questions with interactions
-    const totalTime = questionsWithInteractions.reduce((sum, q) => sum + q.interaction.timeSpent, 0);
-    const avgTime = completedQuestions > 0 ? Math.round(totalTime / completedQuestions) : 0;
-    const successRate = completedQuestions > 0 ? Math.round((correctCount / completedQuestions) * 100) : 0;
-
-    const formattedTotalTime = totalTime >= 60
-      ? `${Math.floor(totalTime / 60)}m ${totalTime % 60}s`
-      : `${totalTime}s`;
-
-    return {
-      correctCount,
-      totalQuestions,
-      avgTime,
-      totalTime,
-      formattedTotalTime,
-      successRate,
-      completedQuestions
-    };
-  };
+  // Pre-process expensive calculations once instead of in render loop
+  const processedSeries = useMemo(() =>
+    series.map(seriesItem => ({
+      ...seriesItem,
+      completedCount: seriesItem.sessions.filter(s => s.status === 'completed').length,
+      activeSession: seriesItem.sessions.find(s => s.status === 'active')
+    })), [series]
+  );
 
   if (loading) {
     return (
       <div className="browse-loading">
-        <div className="loading-text">Loading your MCQ series...</div>
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+
+  if (series.length === 0) {
+    return (
+      <div className="browse-container">
+        <h1 className="page-title">Your MCQ Series</h1>
+
+        <div className="mode-toggle">
+          <button
+            className="toggle-btn"
+            onClick={() => navigate('/')}
+          >
+            Flashcards
+          </button>
+          <button
+            className="toggle-btn active"
+            onClick={() => {}}
+          >
+            MCQ
+          </button>
+        </div>
+
+        <div className="empty-container">
+          <h2>No MCQ Series Yet</h2>
+          <p>Create your first MCQ series to start studying</p>
+          <button onClick={() => navigate('/create-mcq-series')} className="primary-btn">
+            Create MCQ Series
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="browse-container">
-      <div className="browse-header">
+      <h1 className="page-title">Your MCQ Series</h1>
+
+      <div className="mode-toggle">
         <button
+          className="toggle-btn"
           onClick={() => navigate('/')}
-          className="back-btn"
         >
-          ←
+          Flashcards
+        </button>
+        <button
+          className="toggle-btn active"
+          onClick={() => {}}
+        >
+          MCQ
         </button>
       </div>
 
-      <div className="series-list">
-        {series.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-text">
-              No MCQ series created yet
-            </div>
-            <button
-              onClick={() => navigate('/create-mcq-series')}
-              className="create-series-btn"
-            >
-              Create Your First MCQ Series
-            </button>
-          </div>
-        ) : (
-          series.map((seriesItem) => (
-            <div key={seriesItem._id} className="series-card">
-              <div className="series-header">
-                <div className="series-title-group">
-                  <h3 className="series-title">{seriesItem.title}</h3>
-                  <div className="series-meta">
-                    <span>started: {formatDate(seriesItem.startedAt)}</span>
-                    <span>sessions: {seriesItem.sessions.filter(s => s.status === 'completed').length}/{seriesItem.sessions.length}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="sessions-container">
-                <div className="sessions-grid">
-                  {seriesItem.sessions.map((session) => {
-                    const sessionStats = calculateSessionStats(session);
-
-                    return (
-                      <div
-                        key={`${seriesItem._id}-${session.sessionId}`}
-                        className={`session-square ${session.status}`}
-                        onClick={() => handleSessionClick(seriesItem._id, session.sessionId, session.status)}
-                        title={`MCQ Session ${session.sessionId} - ${session.status}`}
-                      >
-                        <div className="session-number">#{session.sessionId}</div>
-
-                        {session.questions && session.questions.length > 0 ? (
-                          <div className="session-stats">
-                            <div className="stat-line">
-                              <span className="stat-label">Questions:</span>
-                              <span className="stat-value">{sessionStats.totalQuestions}</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Finished:</span>
-                              <span className="stat-value">{sessionStats.completedQuestions}</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Score:</span>
-                              <span className="stat-value">{sessionStats.correctCount}/{sessionStats.totalQuestions}</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Success:</span>
-                              <span className="stat-value">{sessionStats.successRate}%</span>
-                            </div>
-                            <div className="stat-line">
-                              <span className="stat-label">Total Time:</span>
-                              <span className="stat-value">{sessionStats.formattedTotalTime}</span>
-                            </div>
-                            {session.status === 'active' && (
-                              <div className="session-continue-indicator">
-                                <div className="continue-text">← Click to Continue</div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="session-status-text">
-                            <div className="continue-text">Click to Continue</div>
-                            <div className="session-meta">MCQ Session {session.sessionId}</div>
-                            <div className="session-meta">Ready to start</div>
-                          </div>
-                        )}
-
-                        {session.generatedFrom && (
-                          <div className="generated-indicator">•</div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {seriesItem.status === 'active' &&
-                   seriesItem.sessions.length <= 8 &&
-                   !seriesItem.sessions.some(s => s.status === 'active') && (
-                    <div
-                      className="session-square empty"
-                      title="Create custom MCQ session"
-                      onClick={() => handleNewSessionClick(seriesItem)}
-                    >
-                      <div className="empty-icon">+</div>
-                      <div className="empty-text">Custom Session</div>
-                      <div className="empty-subtext">Click to configure</div>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            </div>
-          ))
-        )}
+      <div className="create-new-section">
+        <button onClick={() => navigate('/create-mcq-series')} className="create-new-btn">
+          + Create New MCQ Series
+        </button>
       </div>
+
+      {processedSeries.length > 0 && <div className="series-divider"></div>}
+
+      <div className="series-list">
+        {processedSeries.map((seriesItem, index) => {
+          const { sessions, _id: seriesId, title, status, completedCount, activeSession } = seriesItem;
+
+          return (
+            <React.Fragment key={seriesItem._id}>
+              {index > 0 && <div className="series-divider"></div>}
+
+              <div className="series-item">
+              <div className="series-header">
+                <h2>{seriesItem.title} <span className="series-progress">({completedCount}/{seriesItem.sessions.length})</span></h2>
+              </div>
+
+              <div className="sessions-row">
+                {seriesItem.sessions.map((session) => {
+                  // Calculate MCQ session stats
+                  const questions = session.questions || [];
+                  const answeredQuestions = questions.filter(q => q.interaction).length;
+                  const correctQuestions = questions.filter(q => q.interaction?.isCorrect).length;
+                  const accuracy = answeredQuestions > 0 ? Math.round((correctQuestions / answeredQuestions) * 100) : 0;
+
+                  const totalTime = questions.reduce((sum, q) => sum + (q.interaction?.timeSpent || 0), 0);
+                  const avgTime = answeredQuestions > 0 ? Math.round(totalTime / answeredQuestions) : 0;
+
+                  const sessionDate = session.completedAt || session.startedAt;
+                  const dateStr = sessionDate ? new Date(sessionDate).toLocaleDateString() : '';
+
+                  return (
+                    <button
+                      key={session.sessionId}
+                      className={`session-btn ${session.status}`}
+                      onClick={() => handleSessionClick(seriesItem._id, session.sessionId, session.status, session, seriesItem)}
+                      title={session.status === 'completed' ? 'Click to view stats' : session.status === 'active' ? 'Click to continue' : ''}
+                    >
+                      <div className="session-number">#{session.sessionId}</div>
+
+                      {session.status === 'completed' && (
+                        <div className="session-stats">
+                          <span>{accuracy}% accuracy</span>
+                          <span>{answeredQuestions}/{questions.length} questions</span>
+                          <span>{avgTime}s avg time</span>
+                          <span>{dateStr}</span>
+                        </div>
+                      )}
+
+                      {session.status === 'active' && (
+                        <>
+                          <div className="session-stats">
+                            <span>In Progress</span>
+                            <span>{answeredQuestions}/{questions.length} done</span>
+                            {answeredQuestions > 0 && <span>{accuracy}% so far</span>}
+                            {avgTime > 0 && <span>{avgTime}s avg</span>}
+                          </div>
+                          <button
+                            className="edit-session-btn"
+                            onClick={(e) => handleEditSession(seriesItem._id, session, seriesItem, e)}
+                            title="Edit session - Add/Remove questions"
+                          >
+                            ⚙
+                          </button>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+
+                {seriesItem.status === 'active' && !activeSession && (
+                  <button
+                    className="session-btn new"
+                    onClick={() => handleNewSession(seriesItem._id, seriesItem)}
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {modalState.type === 'recipe' && (
+        <MCQSessionRecipeModal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          onCreateSession={handleCreateCustomSession}
+          seriesData={modalState.selectedSeries}
+        />
+      )}
+
+      {modalState.type === 'stats' && (
+        <SessionStatsModal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          sessionData={modalState.selectedSession}
+          seriesTitle={modalState.selectedSeries?.title}
+          isFlashcard={false}
+        />
+      )}
     </div>
   );
 };

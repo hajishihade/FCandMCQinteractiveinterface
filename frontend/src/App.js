@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
 import Dashboard from './pages/Dashboard';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import CreateSeries from './pages/CreateSeries';
 import StudySession from './pages/StudySession';
 import BrowseSeries from './pages/BrowseSeries';
@@ -30,23 +32,26 @@ function AppContent() {
 
   return (
     <Routes>
+      <Route path="/" element={<ErrorBoundary><AnalyticsDashboard /></ErrorBoundary>} />
+      <Route path="/browse-series" element={<ErrorBoundary><BrowseSeries /></ErrorBoundary>} />
+      <Route path="/browse-mcq-series" element={<ErrorBoundary><BrowseMCQSeries /></ErrorBoundary>} />
+      <Route path="/create-series" element={<ErrorBoundary><CreateSeries /></ErrorBoundary>} />
+      <Route path="/study" element={<ErrorBoundary><StudySession /></ErrorBoundary>} />
+      <Route path="/create-mcq-series" element={<ErrorBoundary><CreateMCQSeries /></ErrorBoundary>} />
+      <Route path="/mcq-study" element={<ErrorBoundary><MCQSession /></ErrorBoundary>} />
       <Route
-        path="/"
+        path="/dashboard"
         element={
-          <Dashboard
-            onCreateSeries={handleCreateSeries}
-            onBrowseSeries={handleBrowseSeries}
-            onCreateMCQSeries={handleCreateMCQSeries}
-            onBrowseMCQSeries={handleBrowseMCQSeries}
-          />
+          <ErrorBoundary>
+            <Dashboard
+              onCreateSeries={handleCreateSeries}
+              onBrowseSeries={handleBrowseSeries}
+              onCreateMCQSeries={handleCreateMCQSeries}
+              onBrowseMCQSeries={handleBrowseMCQSeries}
+            />
+          </ErrorBoundary>
         }
       />
-      <Route path="/create-series" element={<CreateSeries />} />
-      <Route path="/study" element={<StudySession />} />
-      <Route path="/browse-series" element={<BrowseSeries />} />
-      <Route path="/create-mcq-series" element={<CreateMCQSeries />} />
-      <Route path="/mcq-study" element={<MCQSession />} />
-      <Route path="/browse-mcq-series" element={<BrowseMCQSeries />} />
     </Routes>
   );
 }

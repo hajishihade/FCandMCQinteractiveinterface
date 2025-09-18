@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { mcqAPI, mcqSeriesAPI, mcqSessionAPI } from '../services/mcqApi';
+import { sessionPersistence } from '../utils/sessionPersistence';
 import './MCQSession.css';
 
 const MCQSession = () => {
@@ -29,7 +30,7 @@ const MCQSession = () => {
     const sessionInfo = location.state;
 
     if (!sessionInfo || !sessionInfo.seriesId) {
-      navigate('/');
+      navigate('/browse-mcq-series');
       return;
     }
 
@@ -48,8 +49,17 @@ const MCQSession = () => {
 
       // Get the series data to find which questions to continue with
       const seriesResponse = await mcqSeriesAPI.getById(sessionInfo.seriesId);
+      const seriesData = seriesResponse.data.data || seriesResponse.data;
 
-      const session = seriesResponse.data.data.sessions.find(s => s.sessionId === sessionInfo.sessionId);
+      if (!seriesData || !seriesData.sessions) {
+        throw new Error('MCQ Series data not found or invalid format');
+      }
+
+      const session = seriesData.sessions.find(s => s.sessionId === sessionInfo.sessionId);
+
+      if (!session) {
+        throw new Error('MCQ Session not found in series');
+      }
 
       // Use the existing session's questions
       const selectedQuestions = session.questions && session.questions.length > 0
@@ -211,7 +221,7 @@ const MCQSession = () => {
     return (
       <div className="mcq-error">
         <div className="error-text">{error}</div>
-        <button onClick={() => navigate('/')} className="home-btn">
+        <button onClick={() => navigate('/browse-mcq-series')} className="home-btn">
           Return Home
         </button>
       </div>
@@ -222,7 +232,7 @@ const MCQSession = () => {
     return (
       <div className="mcq-empty">
         <div className="empty-text">No questions to study</div>
-        <button onClick={() => navigate('/')} className="home-btn">
+        <button onClick={() => navigate('/browse-mcq-series')} className="home-btn">
           Return Home
         </button>
       </div>
@@ -326,7 +336,7 @@ const MCQSession = () => {
         </div>
 
         <div className="summary-footer">
-          <button onClick={() => navigate('/')} className="home-btn">
+          <button onClick={() => navigate('/browse-mcq-series')} className="home-btn">
             ← back to home
           </button>
         </div>
@@ -459,7 +469,7 @@ const MCQSession = () => {
       )}
 
       <div className="session-info">
-        <button onClick={() => navigate('/')} className="exit-btn">
+        <button onClick={() => navigate('/browse-mcq-series')} className="exit-btn">
           Exit Session
         </button>
       </div>

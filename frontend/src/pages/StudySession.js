@@ -1,118 +1,195 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { flashcardAPI, sessionAPI, seriesAPI } from '../services/api';
+import { sessionPersistence } from '../utils/sessionPersistence';
 import './StudySession.css';
 
 const StudySession = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [seriesId, setSeriesId] = useState(null);
-  const [sessionId, setSessionId] = useState(null);
-  const [cards, setCards] = useState([]);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  // Core session state
+  const [sessionState, setSessionState] = useState({
+    seriesId: null,
+    sessionId: null,
+    cards: [],
+    currentCardIndex: 0,
+    sessionComplete: false,
+    sessionResults: []
+  });
 
-  const [showingFront, setShowingFront] = useState(true);
-  const [confidence, setConfidence] = useState('');
-  const [difficulty, setDifficulty] = useState('');
-  const [startTime, setStartTime] = useState(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [sessionComplete, setSessionComplete] = useState(false);
-  const [sessionResults, setSessionResults] = useState([]);
+  // UI state
+  const [uiState, setUiState] = useState({
+    showingFront: true,
+    confidence: '',
+    difficulty: '',
+    isTransitioning: false,
+    loading: true,
+    error: ''
+  });
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // Timer state
+  const [timerState, setTimerState] = useState({
+    startTime: null,
+    elapsedTime: 0
+  });
 
-  useEffect(() => {
-    const sessionInfo = location.state;
-
-    if (!sessionInfo || !sessionInfo.seriesId) {
-      navigate('/');
-      return;
-    }
-
-    if (sessionInfo.mode === 'continue') {
-      // Continue existing session
-      continueExistingSession(sessionInfo);
-    } else {
-      // Start new session (from CreateSeries)
-      initializeSession(sessionInfo);
-    }
-  }, [location.state, navigate]);
-
-  const continueExistingSession = async (sessionInfo) => {
+  // Unified session initialization
+  const initializeSession = useCallback(async (sessionInfo) => {
     try {
-      setLoading(true);
+      setUiState(prev => ({ ...prev, loading: true, error: '' }));
 
-      // Get the session data to find which cards to continue with
-      const seriesResponse = await seriesAPI.getById(sessionInfo.seriesId);
-      const session = seriesResponse.data.data.sessions.find(s => s.sessionId === sessionInfo.sessionId);
+      let cards, sessionId;
 
-      // Use the existing session's cards - same as new session logic
-      const selectedCards = session.cards && session.cards.length > 0
-        ? session.cards.map(card => card.cardId)
-        : [0, 1, 2]; // Fallback to some cards if empty
+      if (sessionInfo.mode === 'continue') {
+        // Continue existing session
+        const seriesResponse = await seriesAPI.getById(sessionInfo.seriesId);
+        const seriesData = seriesResponse.data.data || seriesResponse.data;
 
-      // Use exact same logic as CreateSeries -> StudySession
-      const response = await flashcardAPI.getByIds(selectedCards);
-      const flashcards = response.data.data;
+        if (!seriesData || !seriesData.sessions) {
+          throw new Error('Series data not found or invalid format');
+        }
 
-      setSeriesId(sessionInfo.seriesId);
-      setSessionId(sessionInfo.sessionId); // Use existing session
-      setCards(flashcards);
-      setStartTime(Date.now());
+        const session = seriesData.sessions.find(s => s.sessionId === sessionInfo.sessionId);
 
-    } catch (error) {
-      console.error('Error continuing session:', error);
-      setError('Failed to continue study session');
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (!session) {
+          throw new Error('Session not found in series');
+        }
 
-  const initializeSession = async (seriesInfo) => {
-    try {
-      setLoading(true);
+        const selectedCards = session.cards?.length > 0
+          ? session.cards.map(card => card.cardId)
+          : [];
 
-      const response = await flashcardAPI.getByIds(seriesInfo.selectedCards);
-      const flashcards = response.data.data;
+        if (selectedCards.length === 0) {
+          throw new Error('No cards found in session');
+        }
 
-      setSeriesId(seriesInfo.seriesId);
-      setCards(flashcards);
-      setStartTime(Date.now());
+        const response = await flashcardAPI.getByIds(selectedCards);
 
-      const sessionResponse = await sessionAPI.start(seriesInfo.seriesId, seriesInfo.selectedCards);
-      setSessionId(sessionResponse.data.data.sessionId);
+        // Validate API response to prevent crashes
+        if (response && (response.data.data || response.data)) {
+          cards = response.data.data || response.data;
+          if (!Array.isArray(cards) || cards.length === 0) {
+            throw new Error('No valid cards returned from API');
+          }
+        } else {
+          throw new Error('Invalid flashcard API response');
+        }
+
+        sessionId = sessionInfo.sessionId;
+      } else if (sessionInfo.selectedCards) {
+        // Has selectedCards - either from CreateSeries or from modal
+        const response = await flashcardAPI.getByIds(sessionInfo.selectedCards);
+
+        // Validate API response to prevent crashes
+        if (response && (response.data.data || response.data)) {
+          cards = response.data.data || response.data;
+          if (!Array.isArray(cards) || cards.length === 0) {
+            throw new Error('No valid cards returned for session');
+          }
+        } else {
+          throw new Error('Invalid cards API response');
+        }
+
+        if (sessionInfo.sessionId) {
+          // Session already created (from modal)
+          sessionId = sessionInfo.sessionId;
+        } else {
+          // Need to create session (from CreateSeries)
+          const sessionResponse = await sessionAPI.start(sessionInfo.seriesId, sessionInfo.selectedCards);
+          sessionId = sessionResponse.data.data.sessionId;
+        }
+      } else {
+        throw new Error('Invalid session information - no selectedCards or continue mode');
+      }
+
+      setSessionState(prev => ({
+        ...prev,
+        seriesId: sessionInfo.seriesId,
+        sessionId,
+        cards
+      }));
+
+      setTimerState({ startTime: Date.now(), elapsedTime: 0 });
+
+      // Save session state for persistence (completely safe - purely additive)
+      sessionPersistence.saveSession({
+        seriesId: sessionInfo.seriesId,
+        sessionId,
+        currentCardIndex: 0,
+        mode: sessionInfo.mode || 'study'
+      });
 
     } catch (error) {
       console.error('Error initializing session:', error);
-      setError('Failed to start study session');
+      setUiState(prev => ({
+        ...prev,
+        error: sessionInfo.mode === 'continue' ? 'Failed to continue study session' : 'Failed to start study session'
+      }));
     } finally {
-      setLoading(false);
+      setUiState(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, []);
 
-  const handleConfidenceSelect = (level) => {
-    setConfidence(level);
-    if (difficulty && level) {
-      setTimeout(() => setShowingFront(false), 300);
+  // Initialize session on mount
+  useEffect(() => {
+    const sessionInfo = location.state;
+    if (!sessionInfo?.seriesId) {
+      navigate('/');
+      return;
     }
-  };
+    initializeSession(sessionInfo);
+  }, [location.state, navigate, initializeSession]);
 
-  const handleDifficultySelect = (level) => {
-    setDifficulty(level);
-    if (confidence && level) {
-      setTimeout(() => setShowingFront(false), 300);
+  // Reset card state for next card
+  const resetCardState = useCallback(() => {
+    setUiState(prev => ({
+      ...prev,
+      showingFront: true,
+      confidence: '',
+      difficulty: ''
+    }));
+    setTimerState({ startTime: Date.now(), elapsedTime: 0 });
+  }, []);
+
+  // Finish session
+  const finishSession = useCallback(async () => {
+    try {
+      await sessionAPI.complete(sessionState.seriesId, sessionState.sessionId);
+      setSessionState(prev => ({ ...prev, sessionComplete: true }));
+
+      // Clear saved session data when completed (safe cleanup)
+      sessionPersistence.clearSession();
+    } catch (error) {
+      console.error('Error completing session:', error);
+      setUiState(prev => ({ ...prev, error: 'Session finished but there was an error saving.' }));
     }
-  };
+  }, [sessionState.seriesId, sessionState.sessionId]);
 
+  // Unified selection handler
+  const handleSelectionChange = useCallback((type, value) => {
+    setUiState(prev => {
+      const newState = { ...prev, [type]: value };
 
-  const handleResult = async (result) => {
+      // Auto-advance when both selections are made
+      if (newState.confidence && newState.difficulty) {
+        setTimeout(() => setUiState(current => ({ ...current, showingFront: false })), 300);
+      }
+
+      return newState;
+    });
+  }, []);
+
+  // Handle result submission
+  const handleResult = useCallback(async (result) => {
+    const { seriesId, sessionId, cards, currentCardIndex } = sessionState;
+    const { confidence, difficulty } = uiState;
+    const { startTime } = timerState;
+
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     const currentCard = cards[currentCardIndex];
 
-    const currentResult = {
+    const resultData = {
       cardId: currentCard.cardId,
       frontText: currentCard.frontText,
       backText: currentCard.backText,
@@ -132,95 +209,66 @@ const StudySession = () => {
         timeSpent
       });
 
-      setSessionResults(prev => [...prev, currentResult]);
+      setSessionState(prev => ({
+        ...prev,
+        sessionResults: [...prev.sessionResults, resultData]
+      }));
 
+      // Advance to next card or finish session
       if (currentCardIndex + 1 < cards.length) {
-        // Trigger slide out animation
-        setIsTransitioning(true);
+        setUiState(prev => ({ ...prev, isTransitioning: true }));
 
         setTimeout(() => {
-          setCurrentCardIndex(prev => prev + 1);
+          setSessionState(prev => {
+            const newState = { ...prev, currentCardIndex: prev.currentCardIndex + 1 };
+
+            // Save progress (completely safe - just saves state)
+            sessionPersistence.saveSession({
+              seriesId: prev.seriesId,
+              sessionId: prev.sessionId,
+              currentCardIndex: newState.currentCardIndex,
+              mode: 'study'
+            });
+
+            return newState;
+          });
           resetCardState();
-          setIsTransitioning(false);
+          setUiState(prev => ({ ...prev, isTransitioning: false }));
         }, 500);
       } else {
-        finishSessionWithSummary();
+        finishSession();
       }
 
     } catch (error) {
       console.error('Error recording interaction:', error);
-      setError('Failed to record your answer');
+      setUiState(prev => ({ ...prev, error: 'Failed to record your answer' }));
     }
-  };
+  }, [sessionState, uiState, timerState, resetCardState, finishSession]);
 
   // Timer effect
   useEffect(() => {
-    if (startTime) {
+    if (timerState.startTime) {
       const timer = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+        setTimerState(prev => ({
+          ...prev,
+          elapsedTime: Math.floor((Date.now() - prev.startTime) / 1000)
+        }));
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [startTime]);
+  }, [timerState.startTime]);
 
-  const resetCardState = () => {
-    setShowingFront(true);
-    setConfidence('');
-    setDifficulty('');
-    setStartTime(Date.now());
-    setElapsedTime(0);
-  };
-
-
-  const finishSessionWithSummary = async () => {
-    try {
-      await sessionAPI.complete(seriesId, sessionId);
-      setSessionComplete(true);
-    } catch (error) {
-      console.error('Error completing session:', error);
-      setError('Session finished but there was an error saving.');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="study-loading">
-        <div className="loading-text">Starting your study session...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="study-error">
-        <div className="error-text">{error}</div>
-        <button onClick={() => navigate('/')} className="home-btn">
-          Return Home
-        </button>
-      </div>
-    );
-  }
-
-  if (cards.length === 0) {
-    return (
-      <div className="study-empty">
-        <div className="empty-text">No cards to study</div>
-        <button onClick={() => navigate('/')} className="home-btn">
-          Return Home
-        </button>
-      </div>
-    );
-  }
-
-  const currentCard = cards[currentCardIndex];
-
-  const formatTime = (seconds) => {
+  // Utility functions
+  const formatTime = useCallback((seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
-  const calculateSummaryStats = () => {
+  const summaryStats = useMemo(() => {
+    const { sessionResults } = sessionState;
+    if (sessionResults.length === 0) return null;
+
     const correctCount = sessionResults.filter(r => r.result === 'Right').length;
     const totalTime = sessionResults.reduce((sum, r) => sum + r.timeSpent, 0);
     const avgTime = totalTime / sessionResults.length;
@@ -233,11 +281,46 @@ const StudySession = () => {
       totalTime: formatTime(totalTime),
       avgTime: Math.round(avgTime)
     };
-  };
+  }, [sessionState, formatTime]);
 
+  // Early returns for different states
+  if (uiState.loading) {
+    return (
+      <div className="study-loading">
+        <div className="loading-text">Starting your study session...</div>
+      </div>
+    );
+  }
+
+  if (uiState.error) {
+    return (
+      <div className="study-error">
+        <div className="error-text">{uiState.error}</div>
+        <button onClick={() => navigate('/browse-series')} className="home-btn">
+          Return Home
+        </button>
+      </div>
+    );
+  }
+
+  if (sessionState.cards.length === 0) {
+    return (
+      <div className="study-empty">
+        <div className="empty-text">No cards to study</div>
+        <button onClick={() => navigate('/browse-series')} className="home-btn">
+          Return Home
+        </button>
+      </div>
+    );
+  }
+
+  const { cards, currentCardIndex, sessionComplete, sessionResults } = sessionState;
+  const { showingFront, confidence, difficulty, isTransitioning } = uiState;
+  const { elapsedTime } = timerState;
+  const currentCard = cards[currentCardIndex];
+
+  // Session complete summary
   if (sessionComplete) {
-    const stats = calculateSummaryStats();
-
     return (
       <div className="study-container">
         <div className="summary-header">
@@ -245,25 +328,25 @@ const StudySession = () => {
           <div className="summary-stats">
             <div className="stat-item">
               <span className="stat-label">score</span>
-              <span className="stat-value">{stats.correctCount}/{stats.totalCards}</span>
+              <span className="stat-value">{summaryStats.correctCount}/{summaryStats.totalCards}</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">success</span>
-              <span className="stat-value">{stats.successRate}%</span>
+              <span className="stat-value">{summaryStats.successRate}%</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">time</span>
-              <span className="stat-value">{stats.totalTime}</span>
+              <span className="stat-value">{summaryStats.totalTime}</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">avg/card</span>
-              <span className="stat-value">{stats.avgTime}s</span>
+              <span className="stat-value">{summaryStats.avgTime}s</span>
             </div>
           </div>
         </div>
 
         <div className="results-list">
-          {sessionResults.map((result, index) => (
+          {sessionResults.map((result) => (
             <div key={result.cardId} className="result-item">
               <div className="result-header">
                 <span className="card-number">#{result.cardId}</span>
@@ -296,7 +379,7 @@ const StudySession = () => {
         </div>
 
         <div className="summary-footer">
-          <button onClick={() => navigate('/')} className="home-btn">
+          <button onClick={() => navigate('/browse-series')} className="home-btn">
             ← back to series
           </button>
         </div>
@@ -348,14 +431,14 @@ const StudySession = () => {
             <div className="minimal-buttons">
               <button
                 className={`minimal-btn ${confidence === 'High' ? 'selected' : ''}`}
-                onClick={() => handleConfidenceSelect('High')}
+                onClick={() => handleSelectionChange('confidence', 'High')}
                 title="High Confidence"
               >
                 ↑
               </button>
               <button
                 className={`minimal-btn ${confidence === 'Low' ? 'selected' : ''}`}
-                onClick={() => handleConfidenceSelect('Low')}
+                onClick={() => handleSelectionChange('confidence', 'Low')}
                 title="Low Confidence"
               >
                 ↓
@@ -369,21 +452,21 @@ const StudySession = () => {
             <div className="minimal-buttons">
               <button
                 className={`minimal-btn ${difficulty === 'Easy' ? 'selected' : ''}`}
-                onClick={() => handleDifficultySelect('Easy')}
+                onClick={() => handleSelectionChange('difficulty', 'Easy')}
                 title="Easy"
               >
                 −
               </button>
               <button
                 className={`minimal-btn ${difficulty === 'Medium' ? 'selected' : ''}`}
-                onClick={() => handleDifficultySelect('Medium')}
+                onClick={() => handleSelectionChange('difficulty', 'Medium')}
                 title="Medium"
               >
                 =
               </button>
               <button
                 className={`minimal-btn ${difficulty === 'Hard' ? 'selected' : ''}`}
-                onClick={() => handleDifficultySelect('Hard')}
+                onClick={() => handleSelectionChange('difficulty', 'Hard')}
                 title="Hard"
               >
                 ≡
@@ -415,7 +498,7 @@ const StudySession = () => {
       )}
 
       <div className="session-info">
-        <button onClick={() => navigate('/')} className="exit-btn">
+        <button onClick={() => navigate('/browse-series')} className="exit-btn">
           Exit Session
         </button>
       </div>

@@ -147,8 +147,16 @@ const CreateMCQSeries = () => {
   };
 
   const handleCreateSeries = async () => {
-    if (!seriesTitle.trim()) {
+    const trimmedTitle = seriesTitle.trim();
+
+    // Basic input validation to prevent data corruption
+    if (!trimmedTitle) {
       setError('Please enter a series title');
+      return;
+    }
+
+    if (trimmedTitle.length > 100) {
+      setError('Series title must be 100 characters or less');
       return;
     }
 
@@ -162,7 +170,7 @@ const CreateMCQSeries = () => {
 
     try {
       // Step 1: Create the MCQ series
-      const seriesResponse = await mcqSeriesAPI.create(seriesTitle.trim());
+      const seriesResponse = await mcqSeriesAPI.create(trimmedTitle);
       const seriesId = seriesResponse.data.seriesId;
 
       // Step 2: Automatically create first session with selected questions
@@ -276,7 +284,7 @@ const CreateMCQSeries = () => {
     <div className="create-series-container">
       <div className="create-series-header">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/browse-mcq-series')}
           className="back-btn"
         >
           ←
