@@ -12,7 +12,7 @@ import { MCQSeriesList } from '../components/mcq';
 // Shared Components (reuse from flashcard system)
 import { NavigationHeader, FilterSection } from '../components/series';
 
-// Modals (MCQ-specific)
+// Modals (enhanced)
 import MCQSessionRecipeModal from '../components/MCQSessionRecipeModal';
 import SessionStatsModal from '../components/SessionStatsModal';
 

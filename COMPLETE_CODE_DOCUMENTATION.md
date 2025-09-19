@@ -423,7 +423,8 @@ frontend/src/
 │   ├── ErrorBoundary.js - Error handling wrapper
 │   ├── SessionRecipeModal.js - Flashcard session creation
 │   ├── MCQSessionRecipeModal.js - MCQ session creation
-│   └── SessionStatsModal.js - Session statistics display
+│   ├── SessionStatsModal.js - Enhanced session statistics with individual item details
+│   └── SessionStatsModalBackupOriginal.js - Original basic stats modal backup
 │
 ├── hooks/ (Custom business logic hooks)
 │   ├── useSeriesData.js - Flashcard data fetching + filter options
@@ -435,6 +436,8 @@ frontend/src/
 │   ├── useAnalyticsData.js - Analytics data fetching + processing
 │   ├── useAnalyticsCalculations.js - Memoized analytics calculations
 │   ├── useAnalyticsNavigation.js - Analytics navigation handlers
+│   ├── useSessionStatsData.js - Session content fetching for enhanced stats
+│   ├── useSessionAnalytics.js - Comprehensive session stats processing
 │   └── index.js - Barrel exports
 │
 ├── pages/

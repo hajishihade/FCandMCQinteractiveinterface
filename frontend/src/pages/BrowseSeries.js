@@ -7,7 +7,7 @@ import { useSeriesData, useClientFiltering, useSessionActions } from '../hooks';
 // Components
 import { NavigationHeader, FilterSection, SeriesList } from '../components/series';
 
-// Modals (reuse existing)
+// Modals (enhanced)
 import SessionRecipeModal from '../components/SessionRecipeModal';
 import SessionStatsModal from '../components/SessionStatsModal';
 
