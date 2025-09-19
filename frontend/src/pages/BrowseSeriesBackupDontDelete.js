@@ -14,7 +14,7 @@ import SessionStatsModal from '../components/SessionStatsModal';
 // Styles (reuse existing)
 import './BrowseSeries.css';
 
-const NewBrowseSeries = () => {
+const BrowseSeries = () => {
   const navigate = useNavigate();
 
   // Data fetching hook
@@ -156,4 +156,4 @@ const NewBrowseSeries = () => {
   );
 };
 
-export default NewBrowseSeries;
+export default BrowseSeries;

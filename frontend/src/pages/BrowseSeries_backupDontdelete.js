@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mcqSeriesAPI, mcqSessionAPI, mcqAPI } from '../services/mcqApi';
-import MCQSessionRecipeModal from '../components/MCQSessionRecipeModal';
+import { seriesAPI, sessionAPI, flashcardAPI } from '../services/api';
+import SessionRecipeModal from '../components/SessionRecipeModal';
 import SessionStatsModal from '../components/SessionStatsModal';
-import './BrowseMCQSeries.css';
+import './BrowseSeries.css';
 
-const BrowseMCQSeries = () => {
+// Constants
+const SERIES_FETCH_LIMIT = 50;
+
+const BrowseSeries = () => {
   const navigate = useNavigate();
   const [series, setSeries] = useState([]);
-  const [allMCQs, setAllMCQs] = useState([]);
+  const [allFlashcards, setAllFlashcards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     subjects: [],
@@ -36,28 +39,28 @@ const BrowseMCQSeries = () => {
     try {
       setLoading(true);
 
-      // Fetch both MCQ series and all MCQs for client-side filtering
-      const [seriesResponse, mcqsResponse] = await Promise.all([
-        mcqSeriesAPI.getAll({ limit: 100 }),
-        mcqAPI.getAll({ limit: 100 })
+      // Fetch both series and flashcards for client-side filtering
+      const [seriesResponse, flashcardsResponse] = await Promise.all([
+        seriesAPI.getAll({ limit: 100 }),
+        flashcardAPI.getAll({ limit: 100 })
       ]);
 
       // Validate series response
-      if (seriesResponse?.data && Array.isArray(seriesResponse.data)) {
-        setSeries(seriesResponse.data);
+      if (seriesResponse?.data?.data && Array.isArray(seriesResponse.data.data)) {
+        setSeries(seriesResponse.data.data);
       } else {
-        console.error('Invalid MCQ series API response format:', seriesResponse);
+        console.error('Invalid series API response format:', seriesResponse);
         setSeries([]);
       }
 
-      // Validate MCQs response and extract filter options
-      if (mcqsResponse?.data?.data && Array.isArray(mcqsResponse.data.data)) {
-        setAllMCQs(mcqsResponse.data.data);
+      // Validate flashcards response and extract filter options
+      if (flashcardsResponse?.data?.data && Array.isArray(flashcardsResponse.data.data)) {
+        setAllFlashcards(flashcardsResponse.data.data);
 
         // Extract unique filter options
-        const subjects = [...new Set(mcqsResponse.data.data.map(mcq => mcq.subject).filter(Boolean))];
-        const chapters = [...new Set(mcqsResponse.data.data.map(mcq => mcq.chapter).filter(Boolean))];
-        const sections = [...new Set(mcqsResponse.data.data.map(mcq => mcq.section).filter(Boolean))];
+        const subjects = [...new Set(flashcardsResponse.data.data.map(card => card.subject).filter(Boolean))];
+        const chapters = [...new Set(flashcardsResponse.data.data.map(card => card.chapter).filter(Boolean))];
+        const sections = [...new Set(flashcardsResponse.data.data.map(card => card.section).filter(Boolean))];
 
         setFilterOptions({
           subjects: subjects.sort(),
@@ -67,9 +70,9 @@ const BrowseMCQSeries = () => {
       }
 
     } catch (error) {
-      console.error('Failed to fetch MCQ data:', error);
+      console.error('Failed to fetch data:', error);
       setSeries([]);
-      setAllMCQs([]);
+      setAllFlashcards([]);
     } finally {
       setLoading(false);
     }
@@ -81,7 +84,7 @@ const BrowseMCQSeries = () => {
 
   const handleSessionClick = useCallback((seriesId, sessionId, sessionStatus, session, seriesItem) => {
     if (sessionStatus === 'active') {
-      navigate('/mcq-study', {
+      navigate('/study', {
         state: { seriesId, sessionId, mode: 'continue' }
       });
     } else if (sessionStatus === 'completed') {
@@ -104,8 +107,8 @@ const BrowseMCQSeries = () => {
   }, []);
 
   const handleEditSession = useCallback((seriesId, session, seriesData, e) => {
-    e.stopPropagation();
-    const sessionQuestions = session.questions?.map(q => q.questionId) || [];
+    e.stopPropagation(); // Prevent session click
+    const sessionCards = session.cards?.map(card => card.cardId) || [];
 
     setModalState({
       type: 'recipe',
@@ -113,45 +116,48 @@ const BrowseMCQSeries = () => {
       selectedSeries: {
         ...seriesData,
         editingSessionId: session.sessionId,
-        existingQuestions: sessionQuestions
+        existingCards: sessionCards
       },
       selectedSession: session
     });
   }, []);
 
-  const handleCreateCustomSession = useCallback(async (questionIds, sessionId = null, action = 'create') => {
+  const handleCreateCustomSession = useCallback(async (cardIds, sessionId = null, action = 'create') => {
     try {
       if (action === 'delete' && sessionId) {
-        await mcqSessionAPI.delete(modalState.selectedSeries._id, sessionId);
+        // Delete session
+        await sessionAPI.delete(modalState.selectedSeries._id, sessionId);
         fetchSeries();
       } else if (sessionId) {
-        await mcqSessionAPI.delete(modalState.selectedSeries._id, sessionId);
-        if (questionIds.length > 0) {
-          const response = await mcqSessionAPI.start(modalState.selectedSeries._id, questionIds);
-          navigate('/mcq-study', {
+        // Update existing session - delete and recreate
+        await sessionAPI.delete(modalState.selectedSeries._id, sessionId);
+        if (cardIds.length > 0) {
+          const response = await sessionAPI.start(modalState.selectedSeries._id, cardIds, sessionId);
+
+          navigate('/study', {
             state: {
               seriesId: modalState.selectedSeries._id,
-              sessionId: response.data.sessionId,
-              selectedQuestions: questionIds,
-              mode: 'new'
+              sessionId: response.data.data.sessionId,
+              selectedCards: cardIds
             }
           });
         } else {
-          fetchSeries();
+          fetchSeries(); // Just refresh if no cards selected
         }
       } else {
-        const response = await mcqSessionAPI.start(modalState.selectedSeries._id, questionIds);
-        navigate('/mcq-study', {
+        // Create new session
+        const response = await sessionAPI.start(modalState.selectedSeries._id, cardIds);
+
+        navigate('/study', {
           state: {
             seriesId: modalState.selectedSeries._id,
-            sessionId: response.data.sessionId,
-            selectedQuestions: questionIds,
-            mode: 'new'
+            sessionId: response.data.data.sessionId,
+            selectedCards: cardIds
           }
         });
       }
     } catch (error) {
-      alert('Failed to update MCQ session. Please try again.');
+      alert('Failed to update session. Please try again.');
     }
     closeModal();
   }, [modalState.selectedSeries, navigate, fetchSeries]);
@@ -160,69 +166,73 @@ const BrowseMCQSeries = () => {
     setModalState({ type: null, isOpen: false, selectedSeries: null, selectedSession: null });
   }, []);
 
-  // Client-side filtering logic for MCQs
+
+  // No-op function to avoid creating new functions on each render
+  const noOp = useCallback(() => {}, []);
+
+  // Client-side filtering logic
   const filteredSeries = useMemo(() => {
-    if (!series.length || !allMCQs.length) return series;
+    if (!series.length || !allFlashcards.length) return series;
 
     // If no filters applied, return all series
     if (filters.subjects.length === 0 && filters.chapters.length === 0 && filters.sections.length === 0) {
       return series;
     }
 
-    // Create MCQ lookup map
-    const mcqLookup = {};
-    allMCQs.forEach(mcq => {
-      mcqLookup[mcq.questionId] = mcq;
+    // Create flashcard lookup map
+    const flashcardLookup = {};
+    allFlashcards.forEach(card => {
+      flashcardLookup[card.cardId] = card;
     });
 
     return series.filter(seriesItem => {
-      // Extract all questionIds from all sessions in this series
-      const allQuestionIds = [];
+      // Extract all cardIds from all sessions in this series
+      const allCardIds = [];
       seriesItem.sessions?.forEach(session => {
-        session.questions?.forEach(question => {
-          if (typeof question.questionId === 'number') {
-            allQuestionIds.push(question.questionId);
+        session.cards?.forEach(card => {
+          if (typeof card.cardId === 'number') {
+            allCardIds.push(card.cardId);
           }
         });
       });
 
-      if (allQuestionIds.length === 0) return false;
+      if (allCardIds.length === 0) return false;
 
-      // Get unique questionIds and their MCQ data
-      const uniqueQuestionIds = [...new Set(allQuestionIds)];
-      const seriesMCQs = uniqueQuestionIds
-        .map(questionId => mcqLookup[questionId])
+      // Get unique cardIds and their flashcard data
+      const uniqueCardIds = [...new Set(allCardIds)];
+      const seriesFlashcards = uniqueCardIds
+        .map(cardId => flashcardLookup[cardId])
         .filter(Boolean);
 
-      if (seriesMCQs.length === 0) return false;
+      if (seriesFlashcards.length === 0) return false;
 
       // Check if series matches filter criteria
       let matchesFilter = true;
 
-      // Subject filter - series must contain MCQs with ANY of the selected subjects
+      // Subject filter - series must contain flashcards with ANY of the selected subjects
       if (filters.subjects.length > 0) {
-        matchesFilter = matchesFilter && seriesMCQs.some(mcq =>
-          filters.subjects.includes(mcq.subject)
+        matchesFilter = matchesFilter && seriesFlashcards.some(card =>
+          filters.subjects.includes(card.subject)
         );
       }
 
-      // Chapter filter - series must contain MCQs with ANY of the selected chapters
+      // Chapter filter - series must contain flashcards with ANY of the selected chapters
       if (filters.chapters.length > 0) {
-        matchesFilter = matchesFilter && seriesMCQs.some(mcq =>
-          filters.chapters.includes(mcq.chapter)
+        matchesFilter = matchesFilter && seriesFlashcards.some(card =>
+          filters.chapters.includes(card.chapter)
         );
       }
 
-      // Section filter - series must contain MCQs with ANY of the selected sections
+      // Section filter - series must contain flashcards with ANY of the selected sections
       if (filters.sections.length > 0) {
-        matchesFilter = matchesFilter && seriesMCQs.some(mcq =>
-          filters.sections.includes(mcq.section)
+        matchesFilter = matchesFilter && seriesFlashcards.some(card =>
+          filters.sections.includes(card.section)
         );
       }
 
       return matchesFilter;
     });
-  }, [series, allMCQs, filters]);
+  }, [series, allFlashcards, filters]);
 
   // Helper function for multi-select
   const handleFilterToggle = (filterType, value) => {
@@ -275,36 +285,27 @@ const BrowseMCQSeries = () => {
   if (series.length === 0) {
     return (
       <div className="browse-container">
-
-        <div className="navigation-section">
+  
+        <div className="mode-toggle">
           <button
-            className="home-btn"
-            onClick={() => navigate('/')}
+            className="toggle-btn active"
+            onClick={noOp}
           >
-            ← Dashboard
+            Flashcards
           </button>
-
-          <div className="mode-toggle">
-            <button
-              className="toggle-btn"
-              onClick={() => navigate('/browse-series')}
-            >
-              Flashcards
-            </button>
-            <button
-              className="toggle-btn active"
-              onClick={() => {}}
-            >
-              MCQ
-            </button>
-          </div>
+          <button
+            className="toggle-btn"
+            onClick={() => navigate('/browse-mcq-series')}
+          >
+            MCQ
+          </button>
         </div>
 
         <div className="empty-container">
-          <h2>No MCQ Series Yet</h2>
-          <p>Create your first MCQ series to start studying</p>
-          <button onClick={() => navigate('/create-mcq-series')} className="primary-btn">
-            Create MCQ Series
+          <h2>No Series Yet</h2>
+          <p>Create your first flashcard series to start studying</p>
+          <button onClick={() => navigate('/create-series')} className="primary-btn">
+            Create Flashcard Series
           </button>
         </div>
       </div>
@@ -313,6 +314,7 @@ const BrowseMCQSeries = () => {
 
   return (
     <div className="browse-container">
+
       <div className="navigation-section">
         <button
           className="home-btn"
@@ -323,20 +325,20 @@ const BrowseMCQSeries = () => {
 
         <div className="mode-toggle">
           <button
-            className="toggle-btn"
-            onClick={() => navigate('/browse-series')}
+            className="toggle-btn active"
+            onClick={() => {}}
           >
             Flashcards
           </button>
           <button
-            className="toggle-btn active"
-            onClick={() => {}}
+            className="toggle-btn"
+            onClick={() => navigate('/browse-mcq-series')}
           >
             MCQ
           </button>
         </div>
 
-        <button onClick={() => navigate('/create-mcq-series')} className="create-btn">
+        <button onClick={() => navigate('/create-series')} className="create-btn">
           + Create
         </button>
       </div>
@@ -438,78 +440,78 @@ const BrowseMCQSeries = () => {
           const { sessions, _id: seriesId, title, status, completedCount, activeSession } = seriesItem;
 
           return (
-            <React.Fragment key={seriesItem._id}>
+            <React.Fragment key={seriesId}>
               {index > 0 && <div className="series-divider"></div>}
 
               <div className="series-item">
-              <div className="series-header">
-                <h2 className="series-title">{seriesItem.title}</h2>
-                <div className="series-progress">({completedCount}/{seriesItem.sessions.length})</div>
-              </div>
+                <div className="series-header">
+                  <h2 className="series-title">{title}</h2>
+                  <div className="series-progress">({completedCount}/{sessions.length})</div>
+                </div>
 
-              <div className="sessions-row">
-                {seriesItem.sessions.map((session) => {
-                  // Calculate MCQ session stats
-                  const questions = session.questions || [];
-                  const answeredQuestions = questions.filter(q => q.interaction).length;
-                  const correctQuestions = questions.filter(q => q.interaction?.isCorrect).length;
-                  const accuracy = answeredQuestions > 0 ? Math.round((correctQuestions / answeredQuestions) * 100) : 0;
+                <div className="sessions-row">
+                  {sessions.map((session) => {
+                    // Calculate comprehensive session stats
+                    const cards = session.cards || [];
+                    const completedCards = cards.filter(card => card.interaction).length;
+                    const correctCards = cards.filter(card => card.interaction?.result === 'Right').length;
+                    const accuracy = completedCards > 0 ? Math.round((correctCards / completedCards) * 100) : 0;
 
-                  const totalTime = questions.reduce((sum, q) => sum + (q.interaction?.timeSpent || 0), 0);
-                  const avgTime = answeredQuestions > 0 ? Math.round(totalTime / answeredQuestions) : 0;
+                    const totalTime = cards.reduce((sum, card) => sum + (card.interaction?.timeSpent || 0), 0);
+                    const avgTime = completedCards > 0 ? Math.round(totalTime / completedCards) : 0;
 
-                  const sessionDate = session.completedAt || session.startedAt;
-                  const dateStr = sessionDate ? new Date(sessionDate).toLocaleDateString() : '';
 
-                  return (
-                    <button
-                      key={session.sessionId}
-                      className={`session-btn ${session.status}`}
-                      onClick={() => handleSessionClick(seriesItem._id, session.sessionId, session.status, session, seriesItem)}
-                      title={session.status === 'completed' ? 'Click to view stats' : session.status === 'active' ? 'Click to continue' : ''}
-                    >
-                      <div className="session-number">#{session.sessionId}</div>
+                    const sessionDate = session.completedAt || session.startedAt;
+                    const dateStr = sessionDate ? new Date(sessionDate).toLocaleDateString() : '';
 
-                      {session.status === 'completed' && (
-                        <div className="session-stats">
-                          <span>{accuracy}% accuracy</span>
-                          <span>{answeredQuestions}/{questions.length} questions</span>
-                          <span>{avgTime}s avg time</span>
-                          <span>{dateStr}</span>
-                        </div>
-                      )}
+                    return (
+                      <button
+                        key={session.sessionId}
+                        className={`session-btn ${session.status}`}
+                        onClick={() => handleSessionClick(seriesId, session.sessionId, session.status, session, seriesItem)}
+                        title={session.status === 'completed' ? 'Click to view stats' : session.status === 'active' ? 'Click to continue' : ''}
+                      >
+                        <div className="session-number">#{session.sessionId}</div>
 
-                      {session.status === 'active' && (
-                        <>
+                        {session.status === 'completed' && (
                           <div className="session-stats">
-                            <span>In Progress</span>
-                            <span>{answeredQuestions}/{questions.length} done</span>
-                            {answeredQuestions > 0 && <span>{accuracy}% so far</span>}
-                            {avgTime > 0 && <span>{avgTime}s avg</span>}
+                            <span>{accuracy}% accuracy</span>
+                            <span>{completedCards}/{cards.length} cards</span>
+                            <span>{avgTime}s avg time</span>
+                            <span>{dateStr}</span>
                           </div>
-                          <button
-                            className="edit-session-btn"
-                            onClick={(e) => handleEditSession(seriesItem._id, session, seriesItem, e)}
-                            title="Edit session - Add/Remove questions"
-                          >
-                            ⚙
-                          </button>
-                        </>
-                      )}
+                        )}
+
+                        {session.status === 'active' && (
+                          <>
+                            <div className="session-stats">
+                              <span>In Progress</span>
+                              <span>{completedCards}/{cards.length} done</span>
+                              {completedCards > 0 && <span>{accuracy}% so far</span>}
+                              {avgTime > 0 && <span>{avgTime}s avg</span>}
+                            </div>
+                            <button
+                              className="edit-session-btn"
+                              onClick={(e) => handleEditSession(seriesId, session, seriesItem, e)}
+                              title="Edit session - Add/Remove cards"
+                            >
+                              ⚙
+                            </button>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {status === 'active' && !activeSession && (
+                    <button
+                      className="session-btn new"
+                      onClick={() => handleNewSession(seriesId, seriesItem)}
+                    >
+                      +
                     </button>
-                  );
-                })}
-
-                {seriesItem.status === 'active' && !activeSession && (
-                  <button
-                    className="session-btn new"
-                    onClick={() => handleNewSession(seriesItem._id, seriesItem)}
-                  >
-                    +
-                  </button>
-                )}
-              </div>
-
+                  )}
+                </div>
               </div>
             </React.Fragment>
           );
@@ -517,7 +519,7 @@ const BrowseMCQSeries = () => {
       </div>
 
       {modalState.type === 'recipe' && (
-        <MCQSessionRecipeModal
+        <SessionRecipeModal
           isOpen={modalState.isOpen}
           onClose={closeModal}
           onCreateSession={handleCreateCustomSession}
@@ -531,11 +533,11 @@ const BrowseMCQSeries = () => {
           onClose={closeModal}
           sessionData={modalState.selectedSession}
           seriesTitle={modalState.selectedSeries?.title}
-          isFlashcard={false}
+          isFlashcard={true}
         />
       )}
     </div>
   );
 };
 
-export default BrowseMCQSeries;
+export default BrowseSeries;
