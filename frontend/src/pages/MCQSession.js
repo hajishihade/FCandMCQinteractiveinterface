@@ -221,9 +221,14 @@ const MCQSession = () => {
     return (
       <div className="mcq-error">
         <div className="error-text">{error}</div>
-        <button onClick={() => navigate('/browse-mcq-series')} className="home-btn">
-          Return Home
-        </button>
+        <div className="navigation-buttons">
+          <button onClick={() => navigate('/browse-mcq-series')} className="series-btn">
+            ← MCQ Series
+          </button>
+          <button onClick={() => navigate('/')} className="dashboard-btn">
+            🏠 Dashboard
+          </button>
+        </div>
       </div>
     );
   }
@@ -232,9 +237,14 @@ const MCQSession = () => {
     return (
       <div className="mcq-empty">
         <div className="empty-text">No questions to study</div>
-        <button onClick={() => navigate('/browse-mcq-series')} className="home-btn">
-          Return Home
-        </button>
+        <div className="navigation-buttons">
+          <button onClick={() => navigate('/browse-mcq-series')} className="series-btn">
+            ← MCQ Series
+          </button>
+          <button onClick={() => navigate('/')} className="dashboard-btn">
+            🏠 Dashboard
+          </button>
+        </div>
       </div>
     );
   }
@@ -337,7 +347,10 @@ const MCQSession = () => {
 
         <div className="summary-footer">
           <button onClick={() => navigate('/browse-mcq-series')} className="home-btn">
-            ← back to home
+            ← MCQ Series
+          </button>
+          <button onClick={() => navigate('/')} className="dashboard-btn">
+            🏠 Dashboard
           </button>
         </div>
       </div>
@@ -469,9 +482,14 @@ const MCQSession = () => {
       )}
 
       <div className="session-info">
-        <button onClick={() => navigate('/browse-mcq-series')} className="exit-btn">
-          Exit Session
-        </button>
+        <div className="navigation-buttons">
+          <button onClick={() => navigate('/browse-mcq-series')} className="series-btn">
+            ← MCQ Series
+          </button>
+          <button onClick={() => navigate('/')} className="dashboard-btn">
+            🏠 Dashboard
+          </button>
+        </div>
       </div>
     </div>
   );

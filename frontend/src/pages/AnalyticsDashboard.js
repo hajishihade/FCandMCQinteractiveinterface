@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { seriesAPI } from '../services/api';
-import { mcqSeriesAPI } from '../services/mcqApi';
+import { seriesAPI, flashcardAPI } from '../services/api';
+import { mcqSeriesAPI, mcqAPI } from '../services/mcqApi';
 import { analyticsCalculator } from '../utils/analyticsCalculator';
 import './AnalyticsDashboard.css';
 
@@ -10,10 +10,7 @@ const AnalyticsDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Real data state
-  const [flashcardSeries, setFlashcardSeries] = useState([]);
-  const [mcqSeries, setMcqSeries] = useState([]);
-  const [calculatedAnalytics, setCalculatedAnalytics] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
 
 
   const fetchAnalyticsData = useCallback(async () => {
@@ -21,10 +18,12 @@ const AnalyticsDashboard = () => {
       setLoading(true);
       setError('');
 
-      // Fetch both flashcard and MCQ series data
-      const [flashcardResponse, mcqResponse] = await Promise.all([
+      // Fetch all data: series + actual card/question metadata
+      const [flashcardResponse, mcqResponse, allFlashcardsResponse, allMCQsResponse] = await Promise.all([
         seriesAPI.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
-        mcqSeriesAPI.getAll({ limit: 100 }).catch(() => ({ data: [] }))
+        mcqSeriesAPI.getAll({ limit: 100 }).catch(() => ({ data: [] })),
+        flashcardAPI.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
+        mcqAPI.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } }))
       ]);
 
       // Validate and extract data safely
@@ -36,28 +35,47 @@ const AnalyticsDashboard = () => {
         ? mcqResponse.data
         : [];
 
-      // Process data using analytics calculator
-      const processedFlashcards = analyticsCalculator.processFlashcardSeries(flashcardData);
-      const processedMCQs = analyticsCalculator.processMCQSeries(mcqData);
+      const allFlashcards = Array.isArray(allFlashcardsResponse?.data?.data)
+        ? allFlashcardsResponse.data.data
+        : [];
 
-      // Calculate overall analytics
+      const allMCQs = Array.isArray(allMCQsResponse?.data?.data)
+        ? allMCQsResponse.data.data
+        : [];
+
+      // Create lookup maps by ID
+      const flashcardLookup = {};
+      allFlashcards.forEach(card => {
+        flashcardLookup[card.cardId] = card;
+      });
+
+      const mcqLookup = {};
+      allMCQs.forEach(mcq => {
+        mcqLookup[mcq.questionId] = mcq;
+      });
+
+      console.log('LOOKUP DEBUG:');
+      console.log('Total flashcards fetched:', allFlashcards.length);
+      console.log('Total MCQs fetched:', allMCQs.length);
+      console.log('Sample MCQ:', allMCQs[0]);
+
+      // Process data using analytics calculator with both lookups
+      const processedFlashcards = analyticsCalculator.processFlashcardSeries(flashcardData, flashcardLookup);
+      const processedMCQs = analyticsCalculator.processMCQSeries(mcqData, mcqLookup);
+
+      // Calculate analytics from real data
       const overallStats = analyticsCalculator.calculateOverallAnalytics(processedFlashcards, processedMCQs);
-      const weeklyProgress = analyticsCalculator.calculateWeeklyProgress(overallStats.allInteractions);
-      const topSeries = analyticsCalculator.findTopSeries(processedFlashcards, processedMCQs);
+      const activeSessions = analyticsCalculator.findActiveSessions(processedFlashcards, processedMCQs);
       const weakAreas = analyticsCalculator.findWeakAreas(processedFlashcards, processedMCQs);
-      const studyHabits = analyticsCalculator.calculateStudyHabits(processedFlashcards, processedMCQs);
       const formatStats = analyticsCalculator.calculateFormatComparison(processedFlashcards, processedMCQs);
+      const subjectStats = analyticsCalculator.calculateSubjectAnalytics(processedFlashcards, processedMCQs, flashcardLookup, mcqLookup);
 
-      // Store processed data
-      setFlashcardSeries(processedFlashcards);
-      setMcqSeries(processedMCQs);
-      setCalculatedAnalytics({
+      setAnalytics({
         ...overallStats,
-        weeklyAccuracy: weeklyProgress,
-        topSeries,
+        activeSessions,
         weakAreas,
-        studyHabits,
-        formatStats
+        formatStats,
+        subjectStats
       });
 
     } catch (error) {
@@ -72,20 +90,26 @@ const AnalyticsDashboard = () => {
     fetchAnalyticsData();
   }, [fetchAnalyticsData]);
 
-  // Use calculated data or fallback to defaults
-  const analytics = calculatedAnalytics || {
+  // Debug analytics state
+  console.log('Current analytics state:', analytics);
+
+  // Use real analytics data when available
+  const displayAnalytics = analytics ? analytics : {
     totalSeries: 0,
     totalSessions: 0,
     totalCards: 0,
     overallAccuracy: 0,
     studyTime: "0h 0m",
-    improvement: "0%",
-    weeklyAccuracy: [0, 0, 0, 0, 0],
-    topSeries: [{ name: "No data yet", accuracy: 0, sessions: 0 }],
+    activeSessions: [],
     weakAreas: [{ name: "No data yet", accuracy: 0, cardsToReview: 0 }],
-    studyHabits: { streak: 0, averageSessionLength: "0 minutes", preferredTime: "Unknown", consistency: 0 },
-    formatStats: { flashcards: { accuracy: 0, efficiency: "0 cards/min" }, mcq: { accuracy: 0, efficiency: "0 questions/min" } }
+    formatStats: {
+      flashcards: { accuracy: 0 },
+      mcq: { accuracy: 0 }
+    },
+    subjectStats: [{ name: "No data yet", accuracy: 0, totalCards: 0, type: 'unknown' }]
   };
+
+  console.log('Display analytics being used:', displayAnalytics);
 
   if (loading) {
     return (
@@ -121,67 +145,110 @@ const AnalyticsDashboard = () => {
         <div className="widget performance-widget">
           <div className="widget-header">
             <h3>Overall Performance</h3>
-            <span className="trend-indicator">{analytics.improvement}</span>
           </div>
           <div className="widget-content">
             <div className="overview-stats">
               <div className="stat-item">
-                <div className="stat-value">{analytics.overallAccuracy}%</div>
+                <div className="stat-value">{displayAnalytics.overallAccuracy}%</div>
                 <div className="stat-label">Accuracy</div>
               </div>
               <div className="stat-item">
-                <div className="stat-value">{analytics.studyTime}</div>
+                <div className="stat-value">{displayAnalytics.studyTime}</div>
                 <div className="stat-label">Study Time</div>
               </div>
               <div className="stat-item">
-                <div className="stat-value">{analytics.totalSessions}</div>
+                <div className="stat-value">{displayAnalytics.totalSessions}</div>
                 <div className="stat-label">Sessions</div>
               </div>
               <div className="stat-item">
-                <div className="stat-value">{analytics.totalCards}</div>
+                <div className="stat-value">{displayAnalytics.totalCards}</div>
                 <div className="stat-label">Cards</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Weekly Progress Chart */}
-        <div className="widget progress-widget">
+        {/* Subject-wise Analytics */}
+        <div className="widget subject-analytics-widget">
           <div className="widget-header">
-            <h3>Weekly Progress</h3>
+            <h3>Subject Performance</h3>
           </div>
           <div className="widget-content">
-            <div className="chart-container">
-              {analytics.weeklyAccuracy.map((accuracy, index) => (
-                <div key={index} className="chart-bar">
-                  <div
-                    className="bar"
-                    style={{ height: `${accuracy}%` }}
-                    title={`Week ${index + 1}: ${accuracy}%`}
-                  ></div>
-                  <div className="bar-label">W{index + 1}</div>
-                  <div className="bar-value">{accuracy}%</div>
+            {displayAnalytics.subjectStats.map((subject, index) => (
+              <div key={index} className="subject-item">
+                <div className="subject-info">
+                  <span className="subject-name">{subject.name}</span>
+                  <span className="subject-cards">{subject.totalCards} cards</span>
                 </div>
-              ))}
-            </div>
+                <div className="subject-accuracy">
+                  <span className="accuracy-value">{subject.accuracy}%</span>
+                  <div
+                    className="accuracy-bar"
+                    style={{
+                      width: `${subject.accuracy}%`,
+                      backgroundColor: subject.accuracy >= 70 ? '#4caf50' : subject.accuracy >= 50 ? '#ff9800' : '#f44336'
+                    }}
+                  ></div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Top Performing Series */}
-        <div className="widget top-series-widget">
+        {/* Active Sessions Table */}
+        <div className="widget active-sessions-widget">
           <div className="widget-header">
-            <h3>Top Performing Series</h3>
+            <h3>Active Sessions</h3>
           </div>
           <div className="widget-content">
-            {analytics.topSeries.map((series, index) => (
-              <div key={index} className="series-item">
-                <div className="series-info">
-                  <span className="series-name">{series.name}</span>
-                  <span className="series-sessions">{series.sessions} sessions</span>
+            {displayAnalytics.activeSessions.length > 0 ? (
+              <div className="sessions-table">
+                <div className="table-header">
+                  <span>Type</span>
+                  <span>Series</span>
+                  <span>Progress</span>
+                  <span>Started</span>
                 </div>
-                <div className="series-accuracy">{series.accuracy}%</div>
+                {displayAnalytics.activeSessions.map((session, index) => (
+                  <div
+                    key={index}
+                    className="table-row clickable-row"
+                    onClick={() => {
+                      if (session.type === 'Flashcard') {
+                        navigate('/study', {
+                          state: {
+                            seriesId: session.seriesId,
+                            sessionId: session.sessionId,
+                            mode: 'continue'
+                          }
+                        });
+                      } else {
+                        navigate('/mcq-study', {
+                          state: {
+                            seriesId: session.seriesId,
+                            sessionId: session.sessionId,
+                            mode: 'continue'
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    <span className={`session-type ${session.type.toLowerCase()}`}>
+                      {session.type}
+                    </span>
+                    <span className="session-series">{session.seriesTitle}</span>
+                    <span className="session-progress">
+                      {session.completedCards}/{session.totalCards}
+                    </span>
+                    <span className="session-date">
+                      {new Date(session.startedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="no-sessions">No active sessions</div>
+            )}
           </div>
         </div>
 
@@ -191,7 +258,7 @@ const AnalyticsDashboard = () => {
             <h3>Areas Needing Attention</h3>
           </div>
           <div className="widget-content">
-            {analytics.weakAreas.map((area, index) => (
+            {displayAnalytics.weakAreas.map((area, index) => (
               <div key={index} className="weak-area-item">
                 <div className="area-info">
                   <span className="area-name">{area.name}</span>
@@ -205,44 +272,6 @@ const AnalyticsDashboard = () => {
           </div>
         </div>
 
-        {/* Study Habits */}
-        <div className="widget habits-widget">
-          <div className="widget-header">
-            <h3>Study Habits</h3>
-          </div>
-          <div className="widget-content">
-            <div className="habits-grid">
-              <div className="habit-item">
-                <div className="habit-icon">🔥</div>
-                <div className="habit-info">
-                  <div className="habit-value">{analytics.studyHabits.streak} days</div>
-                  <div className="habit-label">Study Streak</div>
-                </div>
-              </div>
-              <div className="habit-item">
-                <div className="habit-icon">⏱️</div>
-                <div className="habit-info">
-                  <div className="habit-value">{analytics.studyHabits.averageSessionLength}</div>
-                  <div className="habit-label">Avg Session</div>
-                </div>
-              </div>
-              <div className="habit-item">
-                <div className="habit-icon">📊</div>
-                <div className="habit-info">
-                  <div className="habit-value">{analytics.studyHabits.consistency}%</div>
-                  <div className="habit-label">Consistency</div>
-                </div>
-              </div>
-              <div className="habit-item">
-                <div className="habit-icon">🌙</div>
-                <div className="habit-info">
-                  <div className="habit-value">{analytics.studyHabits.preferredTime}</div>
-                  <div className="habit-label">Best Time</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Format Comparison */}
         <div className="widget format-widget">
@@ -254,16 +283,14 @@ const AnalyticsDashboard = () => {
               <div className="format-card">
                 <div className="format-name">Flashcards</div>
                 <div className="format-stats">
-                  <div className="format-accuracy">{analytics.formatStats.flashcards.accuracy}%</div>
-                  <div className="format-efficiency">{analytics.formatStats.flashcards.efficiency}</div>
+                  <div className="format-accuracy">{displayAnalytics.formatStats.flashcards.accuracy}%</div>
                 </div>
               </div>
               <div className="vs-divider">vs</div>
               <div className="format-card">
                 <div className="format-name">MCQ</div>
                 <div className="format-stats">
-                  <div className="format-accuracy">{analytics.formatStats.mcq.accuracy}%</div>
-                  <div className="format-efficiency">{analytics.formatStats.mcq.efficiency}</div>
+                  <div className="format-accuracy">{displayAnalytics.formatStats.mcq.accuracy}%</div>
                 </div>
               </div>
             </div>
@@ -279,13 +306,7 @@ const AnalyticsDashboard = () => {
             onClick={() => navigate('/browse-series')}
             className="study-btn primary"
           >
-            📚 Study Flashcards
-          </button>
-          <button
-            onClick={() => navigate('/browse-mcq-series')}
-            className="study-btn secondary"
-          >
-            🧠 Study MCQ
+            📚 Start Studying
           </button>
         </div>
       </div>

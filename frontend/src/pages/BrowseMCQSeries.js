@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mcqSeriesAPI, mcqSessionAPI } from '../services/mcqApi';
+import { mcqSeriesAPI, mcqSessionAPI, mcqAPI } from '../services/mcqApi';
 import MCQSessionRecipeModal from '../components/MCQSessionRecipeModal';
 import SessionStatsModal from '../components/SessionStatsModal';
 import './BrowseMCQSeries.css';
@@ -8,7 +8,23 @@ import './BrowseMCQSeries.css';
 const BrowseMCQSeries = () => {
   const navigate = useNavigate();
   const [series, setSeries] = useState([]);
+  const [allMCQs, setAllMCQs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    subjects: [],
+    chapters: [],
+    sections: []
+  });
+  const [filterOptions, setFilterOptions] = useState({
+    subjects: [],
+    chapters: [],
+    sections: []
+  });
+  const [dropdownOpen, setDropdownOpen] = useState({
+    subjects: false,
+    chapters: false,
+    sections: false
+  });
   const [modalState, setModalState] = useState({
     type: null, // 'recipe' | 'stats' | null
     isOpen: false,
@@ -19,18 +35,41 @@ const BrowseMCQSeries = () => {
   const fetchSeries = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await mcqSeriesAPI.getAll({ limit: 50 });
 
-      // Validate API response structure to prevent crashes
-      if (response && response.data && Array.isArray(response.data)) {
-        setSeries(response.data);
+      // Fetch both MCQ series and all MCQs for client-side filtering
+      const [seriesResponse, mcqsResponse] = await Promise.all([
+        mcqSeriesAPI.getAll({ limit: 100 }),
+        mcqAPI.getAll({ limit: 100 })
+      ]);
+
+      // Validate series response
+      if (seriesResponse?.data && Array.isArray(seriesResponse.data)) {
+        setSeries(seriesResponse.data);
       } else {
-        console.error('Invalid MCQ API response format:', response);
-        setSeries([]); // Safe fallback
+        console.error('Invalid MCQ series API response format:', seriesResponse);
+        setSeries([]);
       }
+
+      // Validate MCQs response and extract filter options
+      if (mcqsResponse?.data?.data && Array.isArray(mcqsResponse.data.data)) {
+        setAllMCQs(mcqsResponse.data.data);
+
+        // Extract unique filter options
+        const subjects = [...new Set(mcqsResponse.data.data.map(mcq => mcq.subject).filter(Boolean))];
+        const chapters = [...new Set(mcqsResponse.data.data.map(mcq => mcq.chapter).filter(Boolean))];
+        const sections = [...new Set(mcqsResponse.data.data.map(mcq => mcq.section).filter(Boolean))];
+
+        setFilterOptions({
+          subjects: subjects.sort(),
+          chapters: chapters.sort(),
+          sections: sections.sort()
+        });
+      }
+
     } catch (error) {
-      console.error('Failed to fetch MCQ series:', error);
-      setSeries([]); // Safe fallback prevents crashes
+      console.error('Failed to fetch MCQ data:', error);
+      setSeries([]);
+      setAllMCQs([]);
     } finally {
       setLoading(false);
     }
@@ -121,13 +160,108 @@ const BrowseMCQSeries = () => {
     setModalState({ type: null, isOpen: false, selectedSeries: null, selectedSession: null });
   }, []);
 
+  // Client-side filtering logic for MCQs
+  const filteredSeries = useMemo(() => {
+    if (!series.length || !allMCQs.length) return series;
+
+    // If no filters applied, return all series
+    if (filters.subjects.length === 0 && filters.chapters.length === 0 && filters.sections.length === 0) {
+      return series;
+    }
+
+    // Create MCQ lookup map
+    const mcqLookup = {};
+    allMCQs.forEach(mcq => {
+      mcqLookup[mcq.questionId] = mcq;
+    });
+
+    return series.filter(seriesItem => {
+      // Extract all questionIds from all sessions in this series
+      const allQuestionIds = [];
+      seriesItem.sessions?.forEach(session => {
+        session.questions?.forEach(question => {
+          if (typeof question.questionId === 'number') {
+            allQuestionIds.push(question.questionId);
+          }
+        });
+      });
+
+      if (allQuestionIds.length === 0) return false;
+
+      // Get unique questionIds and their MCQ data
+      const uniqueQuestionIds = [...new Set(allQuestionIds)];
+      const seriesMCQs = uniqueQuestionIds
+        .map(questionId => mcqLookup[questionId])
+        .filter(Boolean);
+
+      if (seriesMCQs.length === 0) return false;
+
+      // Check if series matches filter criteria
+      let matchesFilter = true;
+
+      // Subject filter - series must contain MCQs with ANY of the selected subjects
+      if (filters.subjects.length > 0) {
+        matchesFilter = matchesFilter && seriesMCQs.some(mcq =>
+          filters.subjects.includes(mcq.subject)
+        );
+      }
+
+      // Chapter filter - series must contain MCQs with ANY of the selected chapters
+      if (filters.chapters.length > 0) {
+        matchesFilter = matchesFilter && seriesMCQs.some(mcq =>
+          filters.chapters.includes(mcq.chapter)
+        );
+      }
+
+      // Section filter - series must contain MCQs with ANY of the selected sections
+      if (filters.sections.length > 0) {
+        matchesFilter = matchesFilter && seriesMCQs.some(mcq =>
+          filters.sections.includes(mcq.section)
+        );
+      }
+
+      return matchesFilter;
+    });
+  }, [series, allMCQs, filters]);
+
+  // Helper function for multi-select
+  const handleFilterToggle = (filterType, value) => {
+    setFilters(prev => {
+      const currentValues = prev[filterType];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
+
+      return { ...prev, [filterType]: newValues };
+    });
+  };
+
+  // Dropdown toggle helper
+  const toggleDropdown = (filterType) => {
+    setDropdownOpen(prev => ({
+      subjects: filterType === 'subjects' ? !prev.subjects : false,
+      chapters: filterType === 'chapters' ? !prev.chapters : false,
+      sections: filterType === 'sections' ? !prev.sections : false
+    }));
+  };
+
+  // Get display text for dropdown button
+  const getDropdownText = (filterType) => {
+    const selected = filters[filterType];
+    const filterName = filterType.charAt(0).toUpperCase() + filterType.slice(1, -1); // "subjects" -> "Subject"
+
+    if (selected.length === 0) return `All ${filterName}s`;
+    if (selected.length === 1) return selected[0];
+    return `${selected.length} ${filterName}s Selected`;
+  };
+
   // Pre-process expensive calculations once instead of in render loop
   const processedSeries = useMemo(() =>
-    series.map(seriesItem => ({
+    filteredSeries.map(seriesItem => ({
       ...seriesItem,
       completedCount: seriesItem.sessions.filter(s => s.status === 'completed').length,
       activeSession: seriesItem.sessions.find(s => s.status === 'active')
-    })), [series]
+    })), [filteredSeries]
   );
 
   if (loading) {
@@ -141,21 +275,29 @@ const BrowseMCQSeries = () => {
   if (series.length === 0) {
     return (
       <div className="browse-container">
-        <h1 className="page-title">Your MCQ Series</h1>
 
-        <div className="mode-toggle">
+        <div className="navigation-section">
           <button
-            className="toggle-btn"
+            className="home-btn"
             onClick={() => navigate('/')}
           >
-            Flashcards
+            ← Dashboard
           </button>
-          <button
-            className="toggle-btn active"
-            onClick={() => {}}
-          >
-            MCQ
-          </button>
+
+          <div className="mode-toggle">
+            <button
+              className="toggle-btn"
+              onClick={() => navigate('/browse-series')}
+            >
+              Flashcards
+            </button>
+            <button
+              className="toggle-btn active"
+              onClick={() => {}}
+            >
+              MCQ
+            </button>
+          </div>
         </div>
 
         <div className="empty-container">
@@ -171,28 +313,123 @@ const BrowseMCQSeries = () => {
 
   return (
     <div className="browse-container">
-      <h1 className="page-title">Your MCQ Series</h1>
-
-      <div className="mode-toggle">
+      <div className="navigation-section">
         <button
-          className="toggle-btn"
+          className="home-btn"
           onClick={() => navigate('/')}
         >
-          Flashcards
+          ← Dashboard
         </button>
-        <button
-          className="toggle-btn active"
-          onClick={() => {}}
-        >
-          MCQ
+
+        <div className="mode-toggle">
+          <button
+            className="toggle-btn"
+            onClick={() => navigate('/browse-series')}
+          >
+            Flashcards
+          </button>
+          <button
+            className="toggle-btn active"
+            onClick={() => {}}
+          >
+            MCQ
+          </button>
+        </div>
+
+        <button onClick={() => navigate('/create-mcq-series')} className="create-btn">
+          + Create
         </button>
       </div>
 
-      <div className="create-new-section">
-        <button onClick={() => navigate('/create-mcq-series')} className="create-new-btn">
-          + Create New MCQ Series
-        </button>
+      <div className="filters-section">
+        <div className="filters-row">
+
+          {/* Subjects Dropdown */}
+          <div className="filter-dropdown">
+            <button
+              className="dropdown-button"
+              onClick={() => toggleDropdown('subjects')}
+            >
+              {getDropdownText('subjects')} ▼
+            </button>
+            {dropdownOpen.subjects && (
+              <div className="dropdown-content">
+                {filterOptions.subjects.map(subject => (
+                  <label key={subject} className="dropdown-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.subjects.includes(subject)}
+                      onChange={() => handleFilterToggle('subjects', subject)}
+                    />
+                    <span className="checkbox-label">{subject}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Chapters Dropdown */}
+          <div className="filter-dropdown">
+            <button
+              className="dropdown-button"
+              onClick={() => toggleDropdown('chapters')}
+            >
+              {getDropdownText('chapters')} ▼
+            </button>
+            {dropdownOpen.chapters && (
+              <div className="dropdown-content">
+                {filterOptions.chapters.map(chapter => (
+                  <label key={chapter} className="dropdown-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.chapters.includes(chapter)}
+                      onChange={() => handleFilterToggle('chapters', chapter)}
+                    />
+                    <span className="checkbox-label">{chapter}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sections Dropdown */}
+          <div className="filter-dropdown">
+            <button
+              className="dropdown-button"
+              onClick={() => toggleDropdown('sections')}
+            >
+              {getDropdownText('sections')} ▼
+            </button>
+            {dropdownOpen.sections && (
+              <div className="dropdown-content">
+                {filterOptions.sections.map(section => (
+                  <label key={section} className="dropdown-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.sections.includes(section)}
+                      onChange={() => handleFilterToggle('sections', section)}
+                    />
+                    <span className="checkbox-label">{section}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setFilters({ subjects: [], chapters: [], sections: [] })}
+            className="clear-filters-btn"
+          >
+            Clear All
+          </button>
+
+          <div className="filter-summary">
+            Showing {processedSeries.length} of {series.length} series
+          </div>
+
+        </div>
       </div>
+
 
       {processedSeries.length > 0 && <div className="series-divider"></div>}
 

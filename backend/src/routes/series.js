@@ -8,7 +8,8 @@ import {
   completeSession,
   deleteSession,
   deleteSeries,
-  completeSeries
+  completeSeries,
+  getFilterOptions
 } from '../controllers/seriesController.js';
 import {
   validateSeriesTitle,
@@ -20,6 +21,8 @@ import {
 const router = express.Router();
 
 router.get('/', validatePagination, getAllSeries);
+
+router.get('/filter-options', getFilterOptions);
 
 router.post('/', validateSeriesTitle, createSeries);
 

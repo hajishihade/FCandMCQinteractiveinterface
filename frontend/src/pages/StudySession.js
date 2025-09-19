@@ -380,7 +380,10 @@ const StudySession = () => {
 
         <div className="summary-footer">
           <button onClick={() => navigate('/browse-series')} className="home-btn">
-            ← back to series
+            ← Series List
+          </button>
+          <button onClick={() => navigate('/')} className="dashboard-btn">
+            🏠 Dashboard
           </button>
         </div>
       </div>
@@ -498,9 +501,14 @@ const StudySession = () => {
       )}
 
       <div className="session-info">
-        <button onClick={() => navigate('/browse-series')} className="exit-btn">
-          Exit Session
-        </button>
+        <div className="navigation-buttons">
+          <button onClick={() => navigate('/browse-series')} className="series-btn">
+            ← Series
+          </button>
+          <button onClick={() => navigate('/')} className="dashboard-btn">
+            🏠 Dashboard
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 
 const getAllSeries = asyncHandler(async (req, res) => {
   const { page, limit, skip } = req.pagination || { page: 1, limit: 10, skip: 0 };
-  const { status, search } = req.query;
+  const { status, search, subject, chapter, section } = req.query;
 
   let query = {};
 
@@ -18,15 +18,70 @@ const getAllSeries = asyncHandler(async (req, res) => {
     query.title = { $regex: search, $options: 'i' };
   }
 
-  const total = await Series.countDocuments(query);
+  let series = await Series.find(query).sort({ startedAt: -1 });
 
-  const series = await Series.find(query)
-    .skip(skip)
-    .limit(limit)
-    .sort({ startedAt: -1 });
+  // Content-based filtering (subject, chapter, section)
+  if (subject || chapter || section) {
+    console.log(`Filtering series by content: subject=${subject}, chapter=${chapter}, section=${section}`);
+
+    // For each series, check if any of its sessions contain flashcards matching the criteria
+    const filteredSeries = [];
+
+    for (const seriesItem of series) {
+      // Extract all cardIds from all sessions in this series
+      const allCardIds = [];
+      seriesItem.sessions.forEach(session => {
+        if (session.cards && Array.isArray(session.cards)) {
+          session.cards.forEach(card => {
+            if (typeof card.cardId === 'number') {
+              allCardIds.push(card.cardId);
+            }
+          });
+        }
+      });
+
+      if (allCardIds.length > 0) {
+        // Remove duplicates
+        const uniqueCardIds = [...new Set(allCardIds)];
+
+        // Fetch flashcard metadata for these cardIds
+        const flashcards = await Flashcard.findByCardIds(uniqueCardIds);
+
+        // Check if any flashcard matches the filter criteria
+        const hasMatchingContent = flashcards.some(flashcard => {
+          let matches = true;
+
+          if (subject) {
+            matches = matches && flashcard.subject && flashcard.subject.toLowerCase().includes(subject.toLowerCase());
+          }
+
+          if (chapter) {
+            matches = matches && flashcard.chapter && flashcard.chapter.toLowerCase().includes(chapter.toLowerCase());
+          }
+
+          if (section) {
+            matches = matches && flashcard.section && flashcard.section.toLowerCase().includes(section.toLowerCase());
+          }
+
+          return matches;
+        });
+
+        if (hasMatchingContent) {
+          filteredSeries.push(seriesItem);
+        }
+      }
+    }
+
+    console.log(`Content filtering: ${series.length} total series → ${filteredSeries.length} matching series`);
+    series = filteredSeries;
+  }
+
+  // Apply pagination to filtered results
+  const total = series.length;
+  const paginatedSeries = series.slice(skip, skip + limit);
 
   // Add session count to each series
-  const seriesWithCounts = series.map(s => ({
+  const seriesWithCounts = paginatedSeries.map(s => ({
     ...s.toObject(),
     sessionCount: s.sessions.length,
     completedSessions: s.sessions.filter(session => session.status === 'completed').length
@@ -41,6 +96,10 @@ const getAllSeries = asyncHandler(async (req, res) => {
       pages: Math.ceil(total / limit),
       total,
       limit
+    },
+    filters: {
+      applied: { subject, chapter, section },
+      totalBeforeFiltering: subject || chapter || section ? await Series.countDocuments(query) : total
     }
   });
 });
@@ -440,6 +499,34 @@ const completeSeries = asyncHandler(async (req, res) => {
   }
 });
 
+const getFilterOptions = asyncHandler(async (req, res) => {
+  try {
+    // Get all unique subjects, chapters, and sections from flashcards
+    const [subjects, chapters, sections] = await Promise.all([
+      Flashcard.distinct('subject'),
+      Flashcard.distinct('chapter'),
+      Flashcard.distinct('section')
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Filter options retrieved successfully',
+      data: {
+        subjects: subjects.filter(s => s && s.trim().length > 0).sort(),
+        chapters: chapters.filter(c => c && c.trim().length > 0).sort(),
+        sections: sections.filter(s => s && s.trim().length > 0).sort()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching filter options:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch filter options',
+      error: error.message
+    });
+  }
+});
+
 export {
   getAllSeries,
   createSeries,
@@ -449,5 +536,6 @@ export {
   completeSession,
   deleteSession,
   deleteSeries,
-  completeSeries
+  completeSeries,
+  getFilterOptions
 };

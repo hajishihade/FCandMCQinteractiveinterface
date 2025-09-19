@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { seriesAPI, sessionAPI } from '../services/api';
+import { seriesAPI, sessionAPI, flashcardAPI } from '../services/api';
 import SessionRecipeModal from '../components/SessionRecipeModal';
 import SessionStatsModal from '../components/SessionStatsModal';
 import './BrowseSeries.css';
@@ -11,7 +11,23 @@ const SERIES_FETCH_LIMIT = 50;
 const BrowseSeries = () => {
   const navigate = useNavigate();
   const [series, setSeries] = useState([]);
+  const [allFlashcards, setAllFlashcards] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    subjects: [],
+    chapters: [],
+    sections: []
+  });
+  const [filterOptions, setFilterOptions] = useState({
+    subjects: [],
+    chapters: [],
+    sections: []
+  });
+  const [dropdownOpen, setDropdownOpen] = useState({
+    subjects: false,
+    chapters: false,
+    sections: false
+  });
   const [modalState, setModalState] = useState({
     type: null, // 'recipe' | 'stats' | null
     isOpen: false,
@@ -22,18 +38,41 @@ const BrowseSeries = () => {
   const fetchSeries = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await seriesAPI.getAll({ limit: SERIES_FETCH_LIMIT });
 
-      // Validate API response structure to prevent crashes
-      if (response && response.data && Array.isArray(response.data.data)) {
-        setSeries(response.data.data);
+      // Fetch both series and flashcards for client-side filtering
+      const [seriesResponse, flashcardsResponse] = await Promise.all([
+        seriesAPI.getAll({ limit: 100 }),
+        flashcardAPI.getAll({ limit: 100 })
+      ]);
+
+      // Validate series response
+      if (seriesResponse?.data?.data && Array.isArray(seriesResponse.data.data)) {
+        setSeries(seriesResponse.data.data);
       } else {
-        console.error('Invalid API response format:', response);
-        setSeries([]); // Safe fallback
+        console.error('Invalid series API response format:', seriesResponse);
+        setSeries([]);
       }
+
+      // Validate flashcards response and extract filter options
+      if (flashcardsResponse?.data?.data && Array.isArray(flashcardsResponse.data.data)) {
+        setAllFlashcards(flashcardsResponse.data.data);
+
+        // Extract unique filter options
+        const subjects = [...new Set(flashcardsResponse.data.data.map(card => card.subject).filter(Boolean))];
+        const chapters = [...new Set(flashcardsResponse.data.data.map(card => card.chapter).filter(Boolean))];
+        const sections = [...new Set(flashcardsResponse.data.data.map(card => card.section).filter(Boolean))];
+
+        setFilterOptions({
+          subjects: subjects.sort(),
+          chapters: chapters.sort(),
+          sections: sections.sort()
+        });
+      }
+
     } catch (error) {
-      console.error('Failed to fetch series:', error);
-      setSeries([]); // Safe fallback prevents crashes
+      console.error('Failed to fetch data:', error);
+      setSeries([]);
+      setAllFlashcards([]);
     } finally {
       setLoading(false);
     }
@@ -131,13 +170,108 @@ const BrowseSeries = () => {
   // No-op function to avoid creating new functions on each render
   const noOp = useCallback(() => {}, []);
 
+  // Client-side filtering logic
+  const filteredSeries = useMemo(() => {
+    if (!series.length || !allFlashcards.length) return series;
+
+    // If no filters applied, return all series
+    if (filters.subjects.length === 0 && filters.chapters.length === 0 && filters.sections.length === 0) {
+      return series;
+    }
+
+    // Create flashcard lookup map
+    const flashcardLookup = {};
+    allFlashcards.forEach(card => {
+      flashcardLookup[card.cardId] = card;
+    });
+
+    return series.filter(seriesItem => {
+      // Extract all cardIds from all sessions in this series
+      const allCardIds = [];
+      seriesItem.sessions?.forEach(session => {
+        session.cards?.forEach(card => {
+          if (typeof card.cardId === 'number') {
+            allCardIds.push(card.cardId);
+          }
+        });
+      });
+
+      if (allCardIds.length === 0) return false;
+
+      // Get unique cardIds and their flashcard data
+      const uniqueCardIds = [...new Set(allCardIds)];
+      const seriesFlashcards = uniqueCardIds
+        .map(cardId => flashcardLookup[cardId])
+        .filter(Boolean);
+
+      if (seriesFlashcards.length === 0) return false;
+
+      // Check if series matches filter criteria
+      let matchesFilter = true;
+
+      // Subject filter - series must contain flashcards with ANY of the selected subjects
+      if (filters.subjects.length > 0) {
+        matchesFilter = matchesFilter && seriesFlashcards.some(card =>
+          filters.subjects.includes(card.subject)
+        );
+      }
+
+      // Chapter filter - series must contain flashcards with ANY of the selected chapters
+      if (filters.chapters.length > 0) {
+        matchesFilter = matchesFilter && seriesFlashcards.some(card =>
+          filters.chapters.includes(card.chapter)
+        );
+      }
+
+      // Section filter - series must contain flashcards with ANY of the selected sections
+      if (filters.sections.length > 0) {
+        matchesFilter = matchesFilter && seriesFlashcards.some(card =>
+          filters.sections.includes(card.section)
+        );
+      }
+
+      return matchesFilter;
+    });
+  }, [series, allFlashcards, filters]);
+
+  // Helper function for multi-select
+  const handleFilterToggle = (filterType, value) => {
+    setFilters(prev => {
+      const currentValues = prev[filterType];
+      const newValues = currentValues.includes(value)
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
+
+      return { ...prev, [filterType]: newValues };
+    });
+  };
+
+  // Dropdown toggle helper
+  const toggleDropdown = (filterType) => {
+    setDropdownOpen(prev => ({
+      subjects: filterType === 'subjects' ? !prev.subjects : false,
+      chapters: filterType === 'chapters' ? !prev.chapters : false,
+      sections: filterType === 'sections' ? !prev.sections : false
+    }));
+  };
+
+  // Get display text for dropdown button
+  const getDropdownText = (filterType) => {
+    const selected = filters[filterType];
+    const filterName = filterType.charAt(0).toUpperCase() + filterType.slice(1, -1); // "subjects" -> "Subject"
+
+    if (selected.length === 0) return `All ${filterName}s`;
+    if (selected.length === 1) return selected[0];
+    return `${selected.length} ${filterName}s Selected`;
+  };
+
   // Pre-process expensive calculations once instead of in render loop
   const processedSeries = useMemo(() =>
-    series.map(seriesItem => ({
+    filteredSeries.map(seriesItem => ({
       ...seriesItem,
       completedCount: seriesItem.sessions.filter(s => s.status === 'completed').length,
       activeSession: seriesItem.sessions.find(s => s.status === 'active')
-    })), [series]
+    })), [filteredSeries]
   );
 
   if (loading) {
@@ -151,8 +285,7 @@ const BrowseSeries = () => {
   if (series.length === 0) {
     return (
       <div className="browse-container">
-        <h1 className="page-title">Your Study Series</h1>
-
+  
         <div className="mode-toggle">
           <button
             className="toggle-btn active"
@@ -181,28 +314,124 @@ const BrowseSeries = () => {
 
   return (
     <div className="browse-container">
-      <h1 className="page-title">Your Study Series</h1>
 
-      <div className="mode-toggle">
+      <div className="navigation-section">
         <button
-          className="toggle-btn active"
-          onClick={() => {}}
+          className="home-btn"
+          onClick={() => navigate('/')}
         >
-          Flashcards
+          ← Dashboard
         </button>
-        <button
-          className="toggle-btn"
-          onClick={() => navigate('/browse-mcq-series')}
-        >
-          MCQ
+
+        <div className="mode-toggle">
+          <button
+            className="toggle-btn active"
+            onClick={() => {}}
+          >
+            Flashcards
+          </button>
+          <button
+            className="toggle-btn"
+            onClick={() => navigate('/browse-mcq-series')}
+          >
+            MCQ
+          </button>
+        </div>
+
+        <button onClick={() => navigate('/create-series')} className="create-btn">
+          + Create
         </button>
       </div>
 
-      <div className="create-new-section">
-        <button onClick={() => navigate('/create-series')} className="create-new-btn">
-          + Create New Flashcard Series
-        </button>
+      <div className="filters-section">
+        <div className="filters-row">
+
+          {/* Subjects Dropdown */}
+          <div className="filter-dropdown">
+            <button
+              className="dropdown-button"
+              onClick={() => toggleDropdown('subjects')}
+            >
+              {getDropdownText('subjects')} ▼
+            </button>
+            {dropdownOpen.subjects && (
+              <div className="dropdown-content">
+                {filterOptions.subjects.map(subject => (
+                  <label key={subject} className="dropdown-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.subjects.includes(subject)}
+                      onChange={() => handleFilterToggle('subjects', subject)}
+                    />
+                    <span className="checkbox-label">{subject}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Chapters Dropdown */}
+          <div className="filter-dropdown">
+            <button
+              className="dropdown-button"
+              onClick={() => toggleDropdown('chapters')}
+            >
+              {getDropdownText('chapters')} ▼
+            </button>
+            {dropdownOpen.chapters && (
+              <div className="dropdown-content">
+                {filterOptions.chapters.map(chapter => (
+                  <label key={chapter} className="dropdown-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.chapters.includes(chapter)}
+                      onChange={() => handleFilterToggle('chapters', chapter)}
+                    />
+                    <span className="checkbox-label">{chapter}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sections Dropdown */}
+          <div className="filter-dropdown">
+            <button
+              className="dropdown-button"
+              onClick={() => toggleDropdown('sections')}
+            >
+              {getDropdownText('sections')} ▼
+            </button>
+            {dropdownOpen.sections && (
+              <div className="dropdown-content">
+                {filterOptions.sections.map(section => (
+                  <label key={section} className="dropdown-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters.sections.includes(section)}
+                      onChange={() => handleFilterToggle('sections', section)}
+                    />
+                    <span className="checkbox-label">{section}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setFilters({ subjects: [], chapters: [], sections: [] })}
+            className="clear-filters-btn"
+          >
+            Clear All
+          </button>
+
+          <div className="filter-summary">
+            Showing {processedSeries.length} of {series.length} series
+          </div>
+
+        </div>
       </div>
+
 
       {processedSeries.length > 0 && <div className="series-divider"></div>}
 
