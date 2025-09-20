@@ -7,14 +7,23 @@ import './CreateSeries.css';
 const CreateMCQSeries = () => {
   const navigate = useNavigate();
   const [mcqs, setMcqs] = useState([]);
+  const [allFilterOptions, setAllFilterOptions] = useState({
+    subjects: [],
+    chapters: [],
+    sections: [],
+    tags: [],
+    sources: []
+  });
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [seriesTitle, setSeriesTitle] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true); // Only for first load
+  const [filterLoading, setFilterLoading] = useState(false); // For filter changes
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [questionsPerPage] = useState(100);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [questionsPerPage] = useState(50);
   const [filters, setFilters] = useState({
     subjects: [],
     chapters: [],
@@ -24,19 +33,70 @@ const CreateMCQSeries = () => {
   });
 
   useEffect(() => {
-    fetchMCQs();
+    fetchFilterOptions();
+    fetchMCQs(true); // Initial load
   }, []);
 
-  const fetchMCQs = async () => {
+  useEffect(() => {
+    fetchMCQs(false); // Filter/pagination change
+  }, [currentPage, filters]);
+
+  const fetchFilterOptions = async () => {
     try {
-      setLoading(true);
-      const response = await mcqAPI.getAll({ limit: 2000 }); // Fetch all 1077+ questions
-      setMcqs(response.data);
+      const response = await mcqAPI.getFilterOptions();
+      console.log('Filter options response:', response);
+
+      // Check both response.data.data and response.data structures
+      const filterData = response?.data?.data || response?.data || {};
+
+      setAllFilterOptions({
+        subjects: filterData.subjects || [],
+        chapters: filterData.chapters || [],
+        sections: filterData.sections || [],
+        tags: filterData.tags || [],
+        sources: filterData.sources || []
+      });
+
+      console.log('Set filter options:', {
+        subjects: filterData.subjects?.length || 0,
+        chapters: filterData.chapters?.length || 0,
+        sections: filterData.sections?.length || 0
+      });
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
+  const fetchMCQs = async (isInitialLoad = false) => {
+    try {
+      // Use different loading states for initial load vs filter changes
+      if (isInitialLoad) {
+        setInitialLoading(true);
+      } else {
+        setFilterLoading(true);
+      }
+
+      const skip = (currentPage - 1) * questionsPerPage;
+      const response = await mcqAPI.getAll({
+        limit: questionsPerPage,
+        skip,
+        subject: filters.subjects.map(s => s.value).join(','),
+        chapter: filters.chapters.map(c => c.value).join(','),
+        section: filters.sections.map(s => s.value).join(',')
+      });
+
+      if (response?.data) {
+        setMcqs(response.data);
+      }
+      if (response?.pagination) {
+        setTotalQuestions(response.pagination.total);
+      }
     } catch (error) {
       console.error('Error fetching MCQs:', error);
       setError('Failed to load MCQs');
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setFilterLoading(false);
     }
   };
 
@@ -48,116 +108,62 @@ const CreateMCQSeries = () => {
     );
   };
 
-  // Get unique values for each filter level
+  // Get unique values for each filter level - now from ALL database options
   const getAvailableSubjects = () => {
-    const subjects = [...new Set(mcqs.map(mcq => mcq.subject).filter(Boolean))];
-    return subjects.map(subject => ({ value: subject, label: subject }));
+    return allFilterOptions.subjects.map(subject => ({ value: subject, label: subject }));
   };
 
   const getAvailableChapters = () => {
-    let relevantMcqs = mcqs;
-
-    // Filter by selected subjects if any
-    if (filters.subjects.length > 0) {
-      relevantMcqs = relevantMcqs.filter(mcq =>
-        filters.subjects.some(subject => subject.value === mcq.subject)
-      );
-    }
-
-    const chapters = [...new Set(relevantMcqs.map(mcq => mcq.chapter).filter(Boolean))];
-    return chapters.map(chapter => ({ value: chapter, label: chapter }));
+    // For now, show all chapters regardless of subject selection
+    // Could implement dependent filtering if needed
+    return allFilterOptions.chapters.map(chapter => ({ value: chapter, label: chapter }));
   };
 
   const getAvailableSections = () => {
-    let relevantMcqs = mcqs;
-
-    // Filter by selected subjects if any
-    if (filters.subjects.length > 0) {
-      relevantMcqs = relevantMcqs.filter(mcq =>
-        filters.subjects.some(subject => subject.value === mcq.subject)
-      );
-    }
-
-    // Filter by selected chapters if any
-    if (filters.chapters.length > 0) {
-      relevantMcqs = relevantMcqs.filter(mcq =>
-        filters.chapters.some(chapter => chapter.value === mcq.chapter)
-      );
-    }
-
-    const sections = [...new Set(relevantMcqs.map(mcq => mcq.section).filter(Boolean))];
-    return sections.map(section => ({ value: section, label: section }));
+    // Show all sections from database
+    return allFilterOptions.sections.map(section => ({ value: section, label: section }));
   };
 
   const getAvailableTags = () => {
-    // Tags are independent - show all available tags from all MCQs
-    const tags = [...new Set(mcqs.flatMap(mcq => mcq.tags || []).filter(Boolean))];
-    return tags.map(tag => ({ value: tag, label: tag }));
+    // Show all tags from database
+    return allFilterOptions.tags.map(tag => ({ value: tag, label: tag }));
   };
 
   const getAvailableSources = () => {
-    // Sources are independent - show all available sources from all MCQs
-    const sources = [...new Set(mcqs.map(mcq => mcq.source).filter(Boolean))];
-    return sources.map(source => ({ value: source, label: source }));
+    // Show all sources from database
+    return allFilterOptions.sources.map(source => ({ value: source, label: source }));
   };
 
-  // Filter MCQs based on all criteria
+  // Search filter on current page only (for quick local search)
   const filteredMCQs = mcqs.filter(mcq => {
-    // Search filter
     if (searchTerm && !mcq.question.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
-
-    // Subject filter (multi-select)
-    if (filters.subjects.length > 0 && !filters.subjects.some(subject => subject.value === mcq.subject)) {
-      return false;
-    }
-
-    // Chapter filter (multi-select)
-    if (filters.chapters.length > 0 && !filters.chapters.some(chapter => chapter.value === mcq.chapter)) {
-      return false;
-    }
-
-    // Section filter (multi-select)
-    if (filters.sections.length > 0 && !filters.sections.some(section => section.value === mcq.section)) {
-      return false;
-    }
-
-    // Tags filter (multi-select)
-    if (filters.tags.length > 0) {
-      const mcqTags = mcq.tags || [];
-      const hasMatchingTag = filters.tags.some(tag => mcqTags.includes(tag.value));
-      if (!hasMatchingTag) {
-        return false;
-      }
-    }
-
-    // Source filter (multi-select)
-    if (filters.sources.length > 0 && !filters.sources.some(source => source.value === mcq.source)) {
-      return false;
-    }
-
     return true;
   });
 
-  // Pagination for display (fetch all, show 100)
-  const totalPages = Math.ceil(filteredMCQs.length / questionsPerPage);
-  const startIndex = (currentPage - 1) * questionsPerPage;
-  const endIndex = startIndex + questionsPerPage;
-  const paginatedMCQs = filteredMCQs.slice(startIndex, endIndex);
+  // Use server pagination
+  const totalPages = Math.ceil(totalQuestions / questionsPerPage) || 1;
+  const paginatedMCQs = filteredMCQs; // Already paginated from server
 
   const handleSelectAll = () => {
-    if (selectedQuestions.length === filteredMCQs.length) {
-      setSelectedQuestions([]);
+    // Select/deselect all questions on current page
+    const currentPageIds = mcqs.map(mcq => mcq.questionId);
+    const allSelected = currentPageIds.every(id => selectedQuestions.includes(id));
+
+    if (allSelected) {
+      // Remove current page IDs from selection
+      setSelectedQuestions(prev => prev.filter(id => !currentPageIds.includes(id)));
     } else {
-      setSelectedQuestions(filteredMCQs.map(mcq => mcq.questionId));
+      // Add current page IDs to selection
+      setSelectedQuestions(prev => [...new Set([...prev, ...currentPageIds])]);
     }
   };
 
   // Reset to page 1 when filters change
   const handleFilterChange = (filterType, value) => {
     setFilters(prev => ({ ...prev, [filterType]: value }));
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset to page 1 when filters change
   };
 
   const handleSearchChange = (value) => {
@@ -291,7 +297,8 @@ const CreateMCQSeries = () => {
     })
   };
 
-  if (loading) {
+  // Only show full page loading on initial load
+  if (initialLoading) {
     return (
       <div className="create-series-loading">
         <div className="loading-spinner">Loading MCQs...</div>
@@ -424,7 +431,11 @@ const CreateMCQSeries = () => {
 
       <div className="filter-summary">
         <span className="filter-count">
-          {filteredMCQs.length} MCQs found
+          {filterLoading ? (
+            <span style={{ opacity: 0.6 }}>Loading...</span>
+          ) : (
+            `${totalQuestions} MCQs found`
+          )}
         </span>
         <input
           type="text"
@@ -432,14 +443,16 @@ const CreateMCQSeries = () => {
           placeholder="search questions..."
           value={searchTerm}
           onChange={(e) => handleSearchChange(e.target.value)}
+          disabled={filterLoading}
         />
         <button
           className="select-all-btn"
           onClick={handleSelectAll}
+          disabled={filterLoading}
         >
-          {selectedQuestions.length === filteredMCQs.length && filteredMCQs.length > 0
-            ? 'Deselect All'
-            : 'Select All'}
+          {selectedQuestions.length === mcqs.length && mcqs.length > 0
+            ? 'Deselect Page'
+            : 'Select Page'}
         </button>
       </div>
 
@@ -449,10 +462,10 @@ const CreateMCQSeries = () => {
         </div>
       )}
 
-      <div className="flashcards-grid">
+      <div className="flashcards-grid" style={{ opacity: filterLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
         {filteredMCQs.length === 0 ? (
           <div className="no-flashcards-message">
-            No MCQs match your filters
+            {filterLoading ? 'Loading MCQs...' : 'No MCQs match your filters'}
           </div>
         ) : (
           paginatedMCQs.map((mcq) => (
@@ -510,7 +523,7 @@ const CreateMCQSeries = () => {
           </button>
 
           <span style={{ color: 'rgba(255,255,255,0.8)' }}>
-            Page {currentPage} of {totalPages} ({filteredMCQs.length} total questions)
+            Page {currentPage} of {totalPages} ({totalQuestions} total questions)
           </span>
 
           <button

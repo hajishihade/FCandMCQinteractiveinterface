@@ -7,14 +7,23 @@ import './CreateSeries.css';
 const CreateTableSeries = () => {
   const navigate = useNavigate();
   const [tables, setTables] = useState([]);
+  const [allFilterOptions, setAllFilterOptions] = useState({
+    subjects: [],
+    chapters: [],
+    sections: [],
+    tags: [],
+    sources: []
+  });
   const [selectedTables, setSelectedTables] = useState([]);
   const [seriesTitle, setSeriesTitle] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true); // Only for first load
+  const [filterLoading, setFilterLoading] = useState(false); // For filter changes
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [tablesPerPage] = useState(100);
+  const [totalTables, setTotalTables] = useState(0);
+  const [tablesPerPage] = useState(50);
   const [filters, setFilters] = useState({
     subjects: [],
     chapters: [],
@@ -24,19 +33,70 @@ const CreateTableSeries = () => {
   });
 
   useEffect(() => {
-    fetchTables();
+    fetchFilterOptions();
+    fetchTables(true); // Initial load
   }, []);
 
-  const fetchTables = async () => {
+  useEffect(() => {
+    fetchTables(false); // Filter/pagination change
+  }, [currentPage, filters]);
+
+  const fetchFilterOptions = async () => {
     try {
-      setLoading(true);
-      const response = await tableQuizAPI.getAll({ limit: 2000 }); // Fetch all tables
-      setTables(response.data);
+      const response = await tableQuizAPI.getFilterOptions();
+      console.log('Table filter options response:', response);
+
+      // Check both response.data.data and response.data structures
+      const filterData = response?.data?.data || response?.data || {};
+
+      setAllFilterOptions({
+        subjects: filterData.subjects || [],
+        chapters: filterData.chapters || [],
+        sections: filterData.sections || [],
+        tags: filterData.tags || [],
+        sources: filterData.sources || []
+      });
+
+      console.log('Set table filter options:', {
+        subjects: filterData.subjects?.length || 0,
+        chapters: filterData.chapters?.length || 0,
+        sections: filterData.sections?.length || 0
+      });
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
+  const fetchTables = async (isInitialLoad = false) => {
+    try {
+      // Use different loading states for initial load vs filter changes
+      if (isInitialLoad) {
+        setInitialLoading(true);
+      } else {
+        setFilterLoading(true);
+      }
+
+      const skip = (currentPage - 1) * tablesPerPage;
+      const response = await tableQuizAPI.getAll({
+        limit: tablesPerPage,
+        skip,
+        subject: filters.subjects.map(s => s.value).join(','),
+        chapter: filters.chapters.map(c => c.value).join(','),
+        section: filters.sections.map(s => s.value).join(',')
+      });
+
+      if (response?.data) {
+        setTables(response.data);
+      }
+      if (response?.pagination) {
+        setTotalTables(response.pagination.total);
+      }
     } catch (error) {
       console.error('Error fetching table quizzes:', error);
       setError('Failed to load table quizzes');
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setFilterLoading(false);
     }
   };
 
@@ -48,47 +108,27 @@ const CreateTableSeries = () => {
     );
   };
 
-  // Get unique values for each filter level
+  // Get unique values for each filter level - now from ALL database options
   const getAvailableSubjects = () => {
-    const subjects = [...new Set(tables.map(table => table.subject).filter(Boolean))];
-    return subjects.map(subject => ({ value: subject, label: subject }));
+    return allFilterOptions.subjects.map(subject => ({ value: subject, label: subject }));
   };
 
   const getAvailableChapters = () => {
-    let relevantTables = tables;
-    if (filters.subjects.length > 0) {
-      relevantTables = relevantTables.filter(table =>
-        filters.subjects.some(subject => subject.value === table.subject)
-      );
-    }
-    const chapters = [...new Set(relevantTables.map(table => table.chapter).filter(Boolean))];
-    return chapters.map(chapter => ({ value: chapter, label: chapter }));
+    // Show all chapters from database
+    return allFilterOptions.chapters.map(chapter => ({ value: chapter, label: chapter }));
   };
 
   const getAvailableSections = () => {
-    let relevantTables = tables;
-    if (filters.subjects.length > 0) {
-      relevantTables = relevantTables.filter(table =>
-        filters.subjects.some(subject => subject.value === table.subject)
-      );
-    }
-    if (filters.chapters.length > 0) {
-      relevantTables = relevantTables.filter(table =>
-        filters.chapters.some(chapter => chapter.value === table.chapter)
-      );
-    }
-    const sections = [...new Set(relevantTables.map(table => table.section).filter(Boolean))];
-    return sections.map(section => ({ value: section, label: section }));
+    // Show all sections from database
+    return allFilterOptions.sections.map(section => ({ value: section, label: section }));
   };
 
   const getAvailableTags = () => {
-    const tags = [...new Set(tables.flatMap(table => table.tags || []).filter(Boolean))];
-    return tags.map(tag => ({ value: tag, label: tag }));
+    return allFilterOptions.tags.map(tag => ({ value: tag, label: tag }));
   };
 
   const getAvailableSources = () => {
-    const sources = [...new Set(tables.map(table => table.source).filter(Boolean))];
-    return sources.map(source => ({ value: source, label: source }));
+    return allFilterOptions.sources.map(source => ({ value: source, label: source }));
   };
 
   // Filter tables based on all criteria
@@ -265,7 +305,8 @@ const CreateTableSeries = () => {
     }
   };
 
-  if (loading) {
+  // Only show full page loading on initial load
+  if (initialLoading) {
     return (
       <div className="create-series-loading">
         <div className="loading-spinner">Loading Table Quizzes...</div>
@@ -393,7 +434,11 @@ const CreateTableSeries = () => {
 
       <div className="filter-summary">
         <span className="filter-count">
-          {filteredTables.length} Table Quizzes found
+          {filterLoading ? (
+            <span style={{ opacity: 0.6 }}>Loading...</span>
+          ) : (
+            `${filteredTables.length} Table Quizzes found`
+          )}
         </span>
         <input
           type="text"
@@ -401,10 +446,12 @@ const CreateTableSeries = () => {
           placeholder="search table quizzes..."
           value={searchTerm}
           onChange={(e) => handleSearchChange(e.target.value)}
+          disabled={filterLoading}
         />
         <button
           className="select-all-btn"
           onClick={handleSelectAll}
+          disabled={filterLoading}
         >
           {selectedTables.length === filteredTables.length && filteredTables.length > 0
             ? 'Deselect All'
@@ -419,10 +466,10 @@ const CreateTableSeries = () => {
         </div>
       )}
 
-      <div className="flashcards-grid">
+      <div className="flashcards-grid" style={{ opacity: filterLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
         {filteredTables.length === 0 ? (
           <div className="no-flashcards-message">
-            No Table Quizzes match your filters
+            {filterLoading ? 'Loading Table Quizzes...' : 'No Table Quizzes match your filters'}
           </div>
         ) : (
           paginatedTables.map((table) => (

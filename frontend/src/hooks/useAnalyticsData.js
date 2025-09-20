@@ -22,7 +22,7 @@ export const useAnalyticsData = () => {
         seriesAPI.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
         mcqSeriesAPI.getAll({ limit: 100 }).catch(() => ({ data: [] })),
         flashcardAPI.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
-        mcqAPI.getAll({ limit: 2000 }).catch(() => ({ data: { data: [] } }))
+        mcqAPI.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } }))
       ]);
 
       // Validate and extract data safely

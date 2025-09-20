@@ -45,7 +45,7 @@ class MCQApiService {
 
   static async getFilterOptions() {
     const response = await axios.get(`${API_BASE}/mcqs/filter-options`);
-    return response.data;
+    return response; // Return full response to match other methods
   }
 
   static async getStats() {
