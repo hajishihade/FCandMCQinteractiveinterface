@@ -216,7 +216,7 @@ class MockTableSessionApiService {
 
     const newSessionId = Math.floor(Math.random() * 1000) + 100;
 
-    // FIXED: Actually add the session to mock data for persistence
+    // Add the session to mock data for persistence
     const series = mockData.tableSeries.find(s => s._id === seriesId);
     if (series) {
       const newSession = {
@@ -252,7 +252,7 @@ class MockTableSessionApiService {
   static async recordInteraction(seriesId, sessionId, interaction) {
     await delay(300);
 
-    // FIXED: Actually record the interaction in mock data
+    // Record the interaction in mock data
     const series = mockData.tableSeries.find(s => s._id === seriesId);
     if (series) {
       const session = series.sessions.find(s => s.sessionId === sessionId);
@@ -294,7 +294,7 @@ class MockTableSessionApiService {
   static async complete(seriesId, sessionId) {
     await delay(200);
 
-    // FIXED: Actually mark session as completed in mock data
+    // Mark session as completed in mock data
     const series = mockData.tableSeries.find(s => s._id === seriesId);
     if (series) {
       const session = series.sessions.find(s => s.sessionId === sessionId);
