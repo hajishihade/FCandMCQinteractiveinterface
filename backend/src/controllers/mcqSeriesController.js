@@ -25,6 +25,7 @@
 
 import MCQSeriesNew from '../models/MCQSeriesNew.js';
 import { body, validationResult } from 'express-validator';
+import logger from '../utils/logger.js';
 
 class MCQSeriesNewController {
 
@@ -65,7 +66,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error fetching MCQ series:', error);
+      logger.error('Error fetching MCQ series:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch MCQ series',
@@ -86,7 +87,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId).lean();
+      const series = await MCQSeriesNew.findById(seriesId).lean(); // Safe - read-only operation
 
       if (!series) {
         return res.status(404).json({
@@ -101,7 +102,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error fetching MCQ series:', error);
+      logger.error('Error fetching MCQ series:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch MCQ series',
@@ -150,7 +151,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error creating MCQ series:', error);
+      logger.error('Error creating MCQ series:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to create MCQ series',
@@ -185,7 +186,7 @@ class MCQSeriesNewController {
       const { seriesId } = req.params;
       const { questionIds, generatedFrom } = req.body;
 
-      const series = await MCQSeriesNew.findById(seriesId).lean();
+      const series = await MCQSeriesNew.findById(seriesId); // Cannot use .lean() - needs instance methods
 
       if (!series) {
         return res.status(404).json({
@@ -228,7 +229,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error starting MCQ session:', error);
+      logger.error('Error starting MCQ session:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to start MCQ session',
@@ -275,7 +276,7 @@ class MCQSeriesNewController {
         timeSpent
       } = req.body;
 
-      const series = await MCQSeriesNew.findById(seriesId).lean();
+      const series = await MCQSeriesNew.findById(seriesId); // Cannot use .lean() - modifies document
 
       if (!series) {
         return res.status(404).json({
@@ -337,7 +338,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error recording interaction:', error);
+      logger.error('Error recording interaction:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to record interaction',
@@ -361,7 +362,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId, sessionId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId).lean();
+      const series = await MCQSeriesNew.findById(seriesId); // Cannot use .lean() - modifies document
 
       if (!series) {
         return res.status(404).json({
@@ -406,7 +407,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error completing session:', error);
+      logger.error('Error completing session:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to complete session',
@@ -419,7 +420,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId).lean();
+      const series = await MCQSeriesNew.findById(seriesId); // Cannot use .lean() - modifies document
 
       if (!series) {
         return res.status(404).json({
@@ -446,7 +447,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error completing series:', error);
+      logger.error('Error completing series:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to complete series',
@@ -471,7 +472,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId, sessionId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId).lean();
+      const series = await MCQSeriesNew.findById(seriesId); // Cannot use .lean() - modifies document
 
       if (!series) {
         return res.status(404).json({
@@ -529,7 +530,7 @@ class MCQSeriesNewController {
       }
 
     } catch (error) {
-      console.error('Error deleting session:', error);
+      logger.error('Error deleting session:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to delete session',
@@ -552,7 +553,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId).lean();
+      const series = await MCQSeriesNew.findById(seriesId).lean(); // Safe - only checking existence
       if (!series) {
         return res.status(404).json({
           success: false,
@@ -572,7 +573,7 @@ class MCQSeriesNewController {
       });
 
     } catch (error) {
-      console.error('Error deleting series:', error);
+      logger.error('Error deleting series:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to delete series',

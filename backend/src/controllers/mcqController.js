@@ -113,7 +113,7 @@ class MCQController {
       });
 
     } catch (error) {
-      console.error('Error fetching MCQ:', error);
+      logger.error('Error fetching MCQ:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch MCQ',
@@ -155,7 +155,7 @@ class MCQController {
       });
 
     } catch (error) {
-      console.error('Error fetching MCQs by IDs:', error);
+      logger.error('Error fetching MCQs by IDs:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch MCQs',
@@ -186,7 +186,7 @@ class MCQController {
       });
 
     } catch (error) {
-      console.error('Error fetching filter options:', error);
+      logger.error('Error fetching filter options:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch filter options',
@@ -219,7 +219,7 @@ class MCQController {
       });
 
     } catch (error) {
-      console.error('Error fetching MCQ stats:', error);
+      logger.error('Error fetching MCQ stats:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch MCQ stats',
