@@ -1,62 +1,96 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { mcqSeriesAPI, mcqAPI } from '../services/mcqApi';
+import { getCachedData, setCachedData, CACHE_KEYS } from '../utils/cache';
 
 export const useMCQData = () => {
-  const [series, setSeries] = useState([]);
-  const [allMCQs, setAllMCQs] = useState([]);
-  const [filterOptions, setFilterOptions] = useState({
-    subjects: [],
-    chapters: [],
-    sections: []
+  // Initialize state with cached data if available
+  const [series, setSeries] = useState(() => getCachedData(CACHE_KEYS.MCQ_SERIES) || []);
+  const [allMCQs, setAllMCQs] = useState(() => getCachedData(CACHE_KEYS.MCQ_LIST) || []);
+  const [filterOptions, setFilterOptions] = useState(() =>
+    getCachedData(CACHE_KEYS.MCQ_FILTER_OPTIONS) || {
+      subjects: [],
+      chapters: [],
+      sections: []
+    }
+  );
+
+  // Start loading only if we don't have cached data
+  const [loading, setLoading] = useState(() => {
+    const hasCached = getCachedData(CACHE_KEYS.MCQ_SERIES) &&
+                      getCachedData(CACHE_KEYS.MCQ_FILTER_OPTIONS);
+    return !hasCached;
   });
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
+      // Check cache first unless forced refresh
+      if (!forceRefresh) {
+        const cachedSeries = getCachedData(CACHE_KEYS.MCQ_SERIES);
+        const cachedFilters = getCachedData(CACHE_KEYS.MCQ_FILTER_OPTIONS);
+        const cachedMCQs = getCachedData(CACHE_KEYS.MCQ_LIST);
+
+        if (cachedSeries && cachedFilters && cachedMCQs) {
+          setSeries(cachedSeries);
+          setFilterOptions(cachedFilters);
+          setAllMCQs(cachedMCQs);
+          setLoading(false);
+          console.log('[MCQ Data] Using cached data');
+          return;
+        }
+      }
+
+      console.log('[MCQ Data] Fetching fresh data...');
       setLoading(true);
       setError('');
 
-      // Fetch series, MCQs for display, AND all filter options separately
-      const [seriesResponse, mcqsResponse, filterResponse] = await Promise.all([
-        mcqSeriesAPI.getAll({ limit: 100 }),
-        mcqAPI.getAll({ limit: 100 }), // Limited for display
-        mcqAPI.getFilterOptions() // Get ALL filter options from entire database
-      ]);
+      // Fetch data with individual error handling
+      const promises = [
+        mcqSeriesAPI.getAll({ limit: 100 }).catch(err => {
+          console.error('Series fetch failed:', err);
+          return { data: [] };
+        }),
+        mcqAPI.getAll({ limit: 100 }).catch(err => {
+          console.error('MCQs fetch failed:', err);
+          return { data: { data: [] } };
+        }),
+        mcqAPI.getFilterOptions().catch(err => {
+          console.error('Filter options fetch failed:', err);
+          return { data: { data: {} } };
+        })
+      ];
 
-      // Validate MCQ series response (Note: different response format)
+      const [seriesResponse, mcqsResponse, filterResponse] = await Promise.all(promises);
+
+      // Process and cache series
       if (seriesResponse?.data && Array.isArray(seriesResponse.data)) {
         setSeries(seriesResponse.data);
+        setCachedData(CACHE_KEYS.MCQ_SERIES, seriesResponse.data);
+        console.log('[MCQ Data] Cached series:', seriesResponse.data.length);
       } else {
         console.error('Invalid MCQ series API response format:', seriesResponse);
         setSeries([]);
       }
 
-      // Validate MCQs response
-      console.log('MCQ Response structure:', mcqsResponse);
+      // Process and cache MCQs
       if (mcqsResponse?.data?.data && Array.isArray(mcqsResponse.data.data)) {
-        console.log('MCQs count:', mcqsResponse.data.data.length);
         setAllMCQs(mcqsResponse.data.data);
+        setCachedData(CACHE_KEYS.MCQ_LIST, mcqsResponse.data.data);
+        console.log('[MCQ Data] Cached MCQs:', mcqsResponse.data.data.length);
       }
 
-      // Use filter options from dedicated endpoint (includes ALL database values)
-      console.log('Filter response in hook:', filterResponse);
-
-      // Handle both response structures
+      // Process and cache filter options
       const filterData = filterResponse?.data?.data || filterResponse?.data || {};
 
       if (filterData.subjects || filterData.chapters || filterData.sections) {
-        setFilterOptions({
+        const options = {
           subjects: filterData.subjects || [],
           chapters: filterData.chapters || [],
           sections: filterData.sections || []
-        });
-
-        console.log('Filter options from database:', {
-          subjects: filterData.subjects?.length || 0,
-          chapters: filterData.chapters?.length || 0,
-          sections: filterData.sections?.length || 0
-        });
+        };
+        setFilterOptions(options);
+        setCachedData(CACHE_KEYS.MCQ_FILTER_OPTIONS, options);
+        console.log('[MCQ Data] Cached filter options');
       } else {
         console.error('No filter data found in response:', filterResponse);
       }
@@ -77,6 +111,11 @@ export const useMCQData = () => {
     filterOptions,
     loading,
     error,
-    fetchData
+    fetchData,
+    clearCache: () => {
+      sessionStorage.removeItem(CACHE_KEYS.MCQ_SERIES);
+      sessionStorage.removeItem(CACHE_KEYS.MCQ_FILTER_OPTIONS);
+      sessionStorage.removeItem(CACHE_KEYS.MCQ_LIST);
+    }
   };
 };

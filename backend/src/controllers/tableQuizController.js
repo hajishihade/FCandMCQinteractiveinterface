@@ -36,6 +36,8 @@ class TableQuizController {
       }
 
       const tableQuizzes = await TableQuiz.find(filter)
+        .lean() // Returns plain objects
+        .select('tableId name subject chapter section source tags') // Only needed fields
         .skip(parseInt(skip))
         .limit(parseInt(limit))
         .sort({ tableId: 1 });
@@ -67,7 +69,7 @@ class TableQuizController {
     try {
       const { tableId } = req.params;
 
-      const tableQuiz = await TableQuiz.findOne({ tableId: parseInt(tableId) });
+      const tableQuiz = await TableQuiz.findOne({ tableId: parseInt(tableId) }).lean();
 
       if (!tableQuiz) {
         return res.status(404).json({

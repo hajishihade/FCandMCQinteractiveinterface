@@ -8,6 +8,8 @@ class MCQSeriesNewController {
       const { limit = 10, skip = 0 } = req.query;
 
       const series = await MCQSeriesNew.find()
+        .lean() // Returns plain objects
+        .select('title status sessions startedAt updatedAt completedAt') // Only needed fields
         .sort({ updatedAt: -1 })
         .skip(parseInt(skip))
         .limit(parseInt(limit));
@@ -39,7 +41,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId).lean();
 
       if (!series) {
         return res.status(404).json({
@@ -114,7 +116,7 @@ class MCQSeriesNewController {
       const { seriesId } = req.params;
       const { questionIds, generatedFrom } = req.body;
 
-      const series = await MCQSeriesNew.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId).lean();
 
       if (!series) {
         return res.status(404).json({
@@ -187,7 +189,7 @@ class MCQSeriesNewController {
         timeSpent
       } = req.body;
 
-      const series = await MCQSeriesNew.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId).lean();
 
       if (!series) {
         return res.status(404).json({
@@ -262,7 +264,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId, sessionId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId).lean();
 
       if (!series) {
         return res.status(404).json({
@@ -320,7 +322,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId).lean();
 
       if (!series) {
         return res.status(404).json({
@@ -360,7 +362,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId, sessionId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId).lean();
 
       if (!series) {
         return res.status(404).json({
@@ -431,7 +433,7 @@ class MCQSeriesNewController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeriesNew.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId).lean();
       if (!series) {
         return res.status(404).json({
           success: false,

@@ -36,6 +36,8 @@ class MCQController {
       }
 
       const mcqs = await MCQ.find(filter)
+        .lean() // Returns plain objects instead of Mongoose documents
+        .select('questionId question subject chapter section source tags correctAnswer') // Only return needed fields
         .skip(parseInt(skip))
         .limit(parseInt(limit))
         .sort({ questionId: 1 });
@@ -67,7 +69,7 @@ class MCQController {
     try {
       const { questionId } = req.params;
 
-      const mcq = await MCQ.findOne({ questionId: parseInt(questionId) });
+      const mcq = await MCQ.findOne({ questionId: parseInt(questionId) }).lean();
 
       if (!mcq) {
         return res.status(404).json({
@@ -104,7 +106,7 @@ class MCQController {
 
       const mcqs = await MCQ.find({
         questionId: { $in: questionIds.map(id => parseInt(id)) }
-      }).sort({ questionId: 1 });
+      }).lean().sort({ questionId: 1 });
 
       // Ensure all requested MCQs were found
       if (mcqs.length !== questionIds.length) {
