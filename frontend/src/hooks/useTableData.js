@@ -1,20 +1,47 @@
 import { useState, useCallback } from 'react';
 // Using real API for database integration
 import { tableSeriesAPI, tableQuizAPI } from '../services/tableQuizApi';
+import { getCachedData, setCachedData, CACHE_KEYS } from '../utils/cache';
 
 export const useTableData = () => {
-  const [series, setSeries] = useState([]);
-  const [allTables, setAllTables] = useState([]);
-  const [filterOptions, setFilterOptions] = useState({
-    subjects: [],
-    chapters: [],
-    sections: []
+  // Initialize with cached data if available
+  const [series, setSeries] = useState(() => getCachedData(CACHE_KEYS.TABLE_SERIES) || []);
+  const [allTables, setAllTables] = useState(() => getCachedData(CACHE_KEYS.TABLE_LIST) || []);
+  const [filterOptions, setFilterOptions] = useState(() =>
+    getCachedData(CACHE_KEYS.TABLE_FILTER_OPTIONS) || {
+      subjects: [],
+      chapters: [],
+      sections: []
+    }
+  );
+
+  // Start loading only if we don't have cached data
+  const [loading, setLoading] = useState(() => {
+    const hasCached = getCachedData(CACHE_KEYS.TABLE_SERIES) &&
+                      getCachedData(CACHE_KEYS.TABLE_LIST);
+    return !hasCached;
   });
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
+      // Check cache first unless forced refresh
+      if (!forceRefresh) {
+        const cachedSeries = getCachedData(CACHE_KEYS.TABLE_SERIES);
+        const cachedTables = getCachedData(CACHE_KEYS.TABLE_LIST);
+        const cachedFilters = getCachedData(CACHE_KEYS.TABLE_FILTER_OPTIONS);
+
+        if (cachedSeries && cachedTables) {
+          setSeries(cachedSeries);
+          setAllTables(cachedTables);
+          if (cachedFilters) setFilterOptions(cachedFilters);
+          setLoading(false);
+          console.log('[Table Data] Using cached data');
+          return;
+        }
+      }
+
+      console.log('[Table Data] Fetching fresh data...');
       setLoading(true);
       setError('');
 
@@ -24,30 +51,38 @@ export const useTableData = () => {
         tableQuizAPI.getAll({ limit: 100 })
       ]);
 
-      // Validate table series response (following MCQ format)
+      // Process and cache series
       if (seriesResponse?.data && Array.isArray(seriesResponse.data)) {
         setSeries(seriesResponse.data);
+        setCachedData(CACHE_KEYS.TABLE_SERIES, seriesResponse.data);
+        console.log('[Table Data] Cached series:', seriesResponse.data.length);
       } else {
         console.error('Invalid table series API response format:', seriesResponse);
         setSeries([]);
       }
 
-      // Validate table quizzes response and extract filter options
+      // Process and cache table quizzes
       console.log('Table Quiz Response structure:', tablesResponse);
       if (tablesResponse?.data && Array.isArray(tablesResponse.data)) {
-        console.log('Table quizzes count:', tablesResponse.data.length);
-        setAllTables(tablesResponse.data);
+        const tables = tablesResponse.data;
+        console.log('Table quizzes count:', tables.length);
+        setAllTables(tables);
+        setCachedData(CACHE_KEYS.TABLE_LIST, tables);
 
         // Extract unique filter options
-        const subjects = [...new Set(tablesResponse.data.map(table => table.subject).filter(Boolean))];
-        const chapters = [...new Set(tablesResponse.data.map(table => table.chapter).filter(Boolean))];
-        const sections = [...new Set(tablesResponse.data.map(table => table.section).filter(Boolean))];
+        const subjects = [...new Set(tables.map(table => table.subject).filter(Boolean))];
+        const chapters = [...new Set(tables.map(table => table.chapter).filter(Boolean))];
+        const sections = [...new Set(tables.map(table => table.section).filter(Boolean))];
 
-        setFilterOptions({
+        const options = {
           subjects: subjects.sort(),
           chapters: chapters.sort(),
           sections: sections.sort()
-        });
+        };
+
+        setFilterOptions(options);
+        setCachedData(CACHE_KEYS.TABLE_FILTER_OPTIONS, options);
+        console.log('[Table Data] Cached filter options');
 
         console.log('Filter options:', {
           subjects: subjects.length,
@@ -72,6 +107,11 @@ export const useTableData = () => {
     filterOptions,
     loading,
     error,
-    fetchData
+    fetchData,
+    clearCache: () => {
+      sessionStorage.removeItem(CACHE_KEYS.TABLE_SERIES);
+      sessionStorage.removeItem(CACHE_KEYS.TABLE_FILTER_OPTIONS);
+      sessionStorage.removeItem(CACHE_KEYS.TABLE_LIST);
+    }
   };
 };

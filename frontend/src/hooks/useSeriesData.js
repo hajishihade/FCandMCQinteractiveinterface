@@ -1,19 +1,46 @@
 import { useState, useCallback } from 'react';
 import { seriesAPI, flashcardAPI } from '../services/api';
+import { getCachedData, setCachedData, CACHE_KEYS } from '../utils/cache';
 
 export const useSeriesData = () => {
-  const [series, setSeries] = useState([]);
-  const [allFlashcards, setAllFlashcards] = useState([]);
-  const [filterOptions, setFilterOptions] = useState({
-    subjects: [],
-    chapters: [],
-    sections: []
+  // Initialize with cached data if available
+  const [series, setSeries] = useState(() => getCachedData(CACHE_KEYS.FLASHCARD_SERIES) || []);
+  const [allFlashcards, setAllFlashcards] = useState(() => getCachedData(CACHE_KEYS.FLASHCARD_LIST) || []);
+  const [filterOptions, setFilterOptions] = useState(() =>
+    getCachedData(CACHE_KEYS.FLASHCARD_FILTER_OPTIONS) || {
+      subjects: [],
+      chapters: [],
+      sections: []
+    }
+  );
+
+  // Start loading only if we don't have cached data
+  const [loading, setLoading] = useState(() => {
+    const hasCached = getCachedData(CACHE_KEYS.FLASHCARD_SERIES) &&
+                      getCachedData(CACHE_KEYS.FLASHCARD_LIST);
+    return !hasCached;
   });
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
+      // Check cache first unless forced refresh
+      if (!forceRefresh) {
+        const cachedSeries = getCachedData(CACHE_KEYS.FLASHCARD_SERIES);
+        const cachedFlashcards = getCachedData(CACHE_KEYS.FLASHCARD_LIST);
+        const cachedFilters = getCachedData(CACHE_KEYS.FLASHCARD_FILTER_OPTIONS);
+
+        if (cachedSeries && cachedFlashcards) {
+          setSeries(cachedSeries);
+          setAllFlashcards(cachedFlashcards);
+          if (cachedFilters) setFilterOptions(cachedFilters);
+          setLoading(false);
+          console.log('[Series Data] Using cached data');
+          return;
+        }
+      }
+
+      console.log('[Series Data] Fetching fresh data...');
       setLoading(true);
       setError('');
 
@@ -23,32 +50,36 @@ export const useSeriesData = () => {
         flashcardAPI.getAll({ limit: 100 })
       ]);
 
-      // Validate series response
+      // Process and cache series
       if (seriesResponse?.data?.data && Array.isArray(seriesResponse.data.data)) {
         setSeries(seriesResponse.data.data);
+        setCachedData(CACHE_KEYS.FLASHCARD_SERIES, seriesResponse.data.data);
+        console.log('[Series Data] Cached series:', seriesResponse.data.data.length);
       } else {
         console.error('Invalid series API response format:', seriesResponse);
         setSeries([]);
       }
 
-      // Validate flashcards response and extract filter options
+      // Process and cache flashcards
       if (flashcardsResponse?.data?.data && Array.isArray(flashcardsResponse.data.data)) {
-        setAllFlashcards(flashcardsResponse.data.data);
+        const flashcards = flashcardsResponse.data.data;
+        setAllFlashcards(flashcards);
+        setCachedData(CACHE_KEYS.FLASHCARD_LIST, flashcards);
+        console.log('[Series Data] Cached flashcards:', flashcards.length);
 
-        // Extract unique filter options
-        const subjects = [...new Set(flashcardsResponse.data.data.map(card => card.subject).filter(Boolean))];
-        const chapters = [...new Set(flashcardsResponse.data.data.map(card => card.chapter).filter(Boolean))];
-        const sections = [...new Set(flashcardsResponse.data.data.map(card => card.section).filter(Boolean))];
+        // Extract filter options from flashcards
+        const subjects = [...new Set(flashcards.map(fc => fc.subject).filter(Boolean))].sort();
+        const chapters = [...new Set(flashcards.map(fc => fc.chapter).filter(Boolean))].sort();
+        const sections = [...new Set(flashcards.map(fc => fc.section).filter(Boolean))].sort();
 
-        setFilterOptions({
-          subjects: subjects.sort(),
-          chapters: chapters.sort(),
-          sections: sections.sort()
-        });
+        const options = { subjects, chapters, sections };
+        setFilterOptions(options);
+        setCachedData(CACHE_KEYS.FLASHCARD_FILTER_OPTIONS, options);
+        console.log('[Series Data] Cached filter options');
       }
 
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('Failed to fetch series data:', error);
       setError('Failed to load series data');
       setSeries([]);
       setAllFlashcards([]);
@@ -63,6 +94,11 @@ export const useSeriesData = () => {
     filterOptions,
     loading,
     error,
-    fetchData
+    fetchData,
+    clearCache: () => {
+      sessionStorage.removeItem(CACHE_KEYS.FLASHCARD_SERIES);
+      sessionStorage.removeItem(CACHE_KEYS.FLASHCARD_FILTER_OPTIONS);
+      sessionStorage.removeItem(CACHE_KEYS.FLASHCARD_LIST);
+    }
   };
 };
