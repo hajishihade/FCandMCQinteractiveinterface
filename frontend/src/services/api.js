@@ -15,8 +15,8 @@
 
 import axios from 'axios';
 
-// ⚠️ IMPROVEMENT: Should use process.env.REACT_APP_API_URL || 'http://localhost:3001/api'
-const API_BASE_URL = 'http://localhost:3001/api';
+// Now using environment variable with fallback to localhost
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 /**
  * Configured axios instance

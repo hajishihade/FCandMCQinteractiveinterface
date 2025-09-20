@@ -7,6 +7,7 @@
  * - Helmet for security headers
  * - CORS for cross-origin requests
  * - Morgan for request logging
+ * - Rate limiting (100 requests per 15 minutes per IP)
  * - Dual MongoDB connections (main + series)
  */
 
@@ -15,6 +16,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { connectDB } from '../config/database.js';
 import { connectSeriesDB } from '../config/seriesDatabase.js';
@@ -31,6 +33,20 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+/**
+ * Configure rate limiting for API protection
+ * Prevents abuse and ensures fair usage
+ */
+const createRateLimiter = () => {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15 minute window
+    max: 100,                   // Limit each IP to 100 requests per window
+    message: 'Too many requests from this IP, please try again later.',
+    standardHeaders: true,      // Return rate limit info in headers
+    legacyHeaders: false,       // Disable X-RateLimit-* headers
+  });
+};
 
 /**
  * Configure Express middleware stack
@@ -55,6 +71,9 @@ const setupMiddleware = () => {
   app.use(morgan('combined'));     // HTTP request logging
   app.use(express.json());         // Parse JSON bodies
   app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+  // Apply rate limiting to API routes only
+  app.use('/api/', createRateLimiter());
 };
 
 /**

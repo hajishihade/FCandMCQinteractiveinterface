@@ -177,14 +177,8 @@ class TableSeriesController {
 
   static async recordInteraction(req, res) {
     try {
-      // DEBUG: Log the incoming request data
-      console.log('=== BACKEND INTERACTION DEBUG ===');
-      console.log('Params:', req.params);
-      console.log('Body:', JSON.stringify(req.body, null, 2));
-
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('Validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           message: 'Validation failed',

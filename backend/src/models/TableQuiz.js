@@ -149,6 +149,6 @@ TableQuizSchema.methods.getTotalContentCells = function() {
   return this.getContentCells().length;
 };
 
-// Use main mongoose connection for content database → collection: "table"
-// ⚠️ INCONSISTENCY: Model name 'table' doesn't match schema naming convention
-export default mongoose.model('table', TableQuizSchema);
+// Use main mongoose connection for content database
+// Fixed: Model name now matches schema naming convention
+export default mongoose.model('TableQuiz', TableQuizSchema);
