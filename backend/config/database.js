@@ -5,11 +5,18 @@ dotenv.config();
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    // Connect to content database
+    const contentDbUri = process.env.CONTENT_MONGODB_URI;
+
+    if (!contentDbUri) {
+      throw new Error('CONTENT_MONGODB_URI environment variable is required');
+    }
+
+    const conn = await mongoose.connect(contentDbUri);
+    console.log(`Content Database Connected: ${conn.connection.host} (Database: content)`);
     return conn;
   } catch (error) {
-    console.error('Database connection error:', error);
+    console.error('Content database connection error:', error);
     process.exit(1);
   }
 };

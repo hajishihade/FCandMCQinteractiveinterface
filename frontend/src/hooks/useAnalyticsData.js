@@ -53,11 +53,6 @@ export const useAnalyticsData = () => {
         mcqLookup[mcq.questionId] = mcq;
       });
 
-      console.log('=== NEW ANALYTICS ARCHITECTURE DATA ===');
-      console.log('Total flashcards fetched:', allFlashcards.length);
-      console.log('Total MCQs fetched:', allMCQs.length);
-      console.log('Flashcard series:', flashcardData.length);
-      console.log('MCQ series:', mcqData.length);
 
       setRawData({
         flashcardData,

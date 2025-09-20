@@ -112,9 +112,6 @@ export const analyticsCalculator = {
 
   // Calculate overall analytics from processed series data
   calculateOverallAnalytics: (flashcardSeries, mcqSeries) => {
-    console.log('=== OVERALL ANALYTICS DEBUG ===');
-    console.log('Flashcard series count:', flashcardSeries.length);
-    console.log('MCQ series count:', mcqSeries.length);
 
     const allFlashcardData = flashcardSeries.flatMap(s => s.processedStats?.interactions || []);
     const allMCQData = mcqSeries.flatMap(s => s.processedStats?.interactions || []);
@@ -334,6 +331,7 @@ export const analyticsCalculator = {
       { name: "No data yet", accuracy: 0, totalCards: 0, type: 'unknown' }
     ];
   },
+
 
   // Helper: Format time from seconds to readable string
   formatTime: (totalSeconds) => {

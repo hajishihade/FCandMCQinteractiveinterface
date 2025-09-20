@@ -1,8 +1,8 @@
-import Series from '../models/Series.js';
+import FlashcardSeries from '../models/FlashcardSeries.js';
 import Flashcard from '../models/Flashcard.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
-const getAllSeries = asyncHandler(async (req, res) => {
+const getAllFlashcardSeries = asyncHandler(async (req, res) => {
   const { page, limit, skip } = req.pagination || { page: 1, limit: 10, skip: 0 };
   const { status, search, subject, chapter, section } = req.query;
 
@@ -18,14 +18,14 @@ const getAllSeries = asyncHandler(async (req, res) => {
     query.title = { $regex: search, $options: 'i' };
   }
 
-  let series = await Series.find(query).sort({ startedAt: -1 });
+  let series = await FlashcardSeries.find(query).sort({ startedAt: -1 });
 
   // Content-based filtering (subject, chapter, section)
   if (subject || chapter || section) {
     console.log(`Filtering series by content: subject=${subject}, chapter=${chapter}, section=${section}`);
 
     // For each series, check if any of its sessions contain flashcards matching the criteria
-    const filteredSeries = [];
+    const filteredFlashcardSeries = [];
 
     for (const seriesItem of series) {
       // Extract all cardIds from all sessions in this series
@@ -67,21 +67,21 @@ const getAllSeries = asyncHandler(async (req, res) => {
         });
 
         if (hasMatchingContent) {
-          filteredSeries.push(seriesItem);
+          filteredFlashcardSeries.push(seriesItem);
         }
       }
     }
 
-    console.log(`Content filtering: ${series.length} total series → ${filteredSeries.length} matching series`);
-    series = filteredSeries;
+    console.log(`Content filtering: ${series.length} total series → ${filteredFlashcardSeries.length} matching series`);
+    series = filteredFlashcardSeries;
   }
 
   // Apply pagination to filtered results
   const total = series.length;
-  const paginatedSeries = series.slice(skip, skip + limit);
+  const paginatedFlashcardSeries = series.slice(skip, skip + limit);
 
   // Add session count to each series
-  const seriesWithCounts = paginatedSeries.map(s => ({
+  const seriesWithCounts = paginatedFlashcardSeries.map(s => ({
     ...s.toObject(),
     sessionCount: s.sessions.length,
     completedSessions: s.sessions.filter(session => session.status === 'completed').length
@@ -89,7 +89,7 @@ const getAllSeries = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: 'Series retrieved successfully',
+    message: 'FlashcardSeries retrieved successfully',
     data: seriesWithCounts,
     pagination: {
       current: page,
@@ -99,12 +99,12 @@ const getAllSeries = asyncHandler(async (req, res) => {
     },
     filters: {
       applied: { subject, chapter, section },
-      totalBeforeFiltering: subject || chapter || section ? await Series.countDocuments(query) : total
+      totalBeforeFiltering: subject || chapter || section ? await FlashcardSeries.countDocuments(query) : total
     }
   });
 });
 
-const createSeries = asyncHandler(async (req, res) => {
+const createFlashcardSeries = asyncHandler(async (req, res) => {
   const { title } = req.body;
 
   const seriesData = {
@@ -113,11 +113,12 @@ const createSeries = asyncHandler(async (req, res) => {
     status: 'active'
   };
 
-  const series = await Series.createSeries(seriesData);
+  const series = new FlashcardSeries(seriesData);
+  await series.save();
 
   res.status(201).json({
     success: true,
-    message: 'Series created successfully',
+    message: 'FlashcardSeries created successfully',
     data: {
       seriesId: series._id,
       title: series.title,
@@ -128,21 +129,21 @@ const createSeries = asyncHandler(async (req, res) => {
   });
 });
 
-const getSeries = asyncHandler(async (req, res) => {
+const getFlashcardSeries = asyncHandler(async (req, res) => {
   try {
     const { seriesId } = req.params;
 
-    const series = await Series.findById(seriesId);
+    const series = await FlashcardSeries.findById(seriesId);
     if (!series) {
       return res.status(404).json({
         success: false,
-        message: 'Series not found'
+        message: 'FlashcardSeries not found'
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Series retrieved successfully',
+      message: 'FlashcardSeries retrieved successfully',
       data: series
     });
 
@@ -167,11 +168,11 @@ const startSession = asyncHandler(async (req, res) => {
       });
     }
 
-    const series = await Series.findById(seriesId);
+    const series = await FlashcardSeries.findById(seriesId);
     if (!series) {
       return res.status(404).json({
         success: false,
-        message: 'Series not found'
+        message: 'FlashcardSeries not found'
       });
     }
 
@@ -251,11 +252,11 @@ const recordInteraction = asyncHandler(async (req, res) => {
       });
     }
 
-    const series = await Series.findById(seriesId);
+    const series = await FlashcardSeries.findById(seriesId);
     if (!series) {
       return res.status(404).json({
         success: false,
-        message: 'Series not found'
+        message: 'FlashcardSeries not found'
       });
     }
 
@@ -307,11 +308,11 @@ const completeSession = asyncHandler(async (req, res) => {
   try {
     const { seriesId, sessionId } = req.params;
 
-    const series = await Series.findById(seriesId);
+    const series = await FlashcardSeries.findById(seriesId);
     if (!series) {
       return res.status(404).json({
         success: false,
-        message: 'Series not found'
+        message: 'FlashcardSeries not found'
       });
     }
 
@@ -360,11 +361,11 @@ const deleteSession = asyncHandler(async (req, res) => {
   try {
     const { seriesId, sessionId } = req.params;
 
-    const series = await Series.findById(seriesId);
+    const series = await FlashcardSeries.findById(seriesId);
     if (!series) {
       return res.status(404).json({
         success: false,
-        message: 'Series not found'
+        message: 'FlashcardSeries not found'
       });
     }
 
@@ -389,13 +390,13 @@ const deleteSession = asyncHandler(async (req, res) => {
 
     // If this was the last session, delete the entire series
     if (series.sessions.length === 0) {
-      await Series.findByIdAndDelete(series._id);
+      await FlashcardSeries.findByIdAndDelete(series._id);
 
       res.status(200).json({
         success: true,
         message: 'Session deleted and series removed (no sessions remaining)',
         data: {
-          deletedSeriesId: series._id,
+          deletedFlashcardSeriesId: series._id,
           deletedSessionId: parseInt(sessionId),
           seriesDeleted: true
         }
@@ -425,26 +426,26 @@ const deleteSession = asyncHandler(async (req, res) => {
   }
 });
 
-const deleteSeries = asyncHandler(async (req, res) => {
+const deleteFlashcardSeries = asyncHandler(async (req, res) => {
   try {
     const { seriesId } = req.params;
 
-    const series = await Series.findById(seriesId);
+    const series = await FlashcardSeries.findById(seriesId);
     if (!series) {
       return res.status(404).json({
         success: false,
-        message: 'Series not found'
+        message: 'FlashcardSeries not found'
       });
     }
 
     // Delete the entire series
-    await Series.findByIdAndDelete(seriesId);
+    await FlashcardSeries.findByIdAndDelete(seriesId);
 
     res.status(200).json({
       success: true,
-      message: 'Series deleted successfully',
+      message: 'FlashcardSeries deleted successfully',
       data: {
-        deletedSeriesId: seriesId
+        deletedFlashcardSeriesId: seriesId
       }
     });
 
@@ -457,30 +458,30 @@ const deleteSeries = asyncHandler(async (req, res) => {
   }
 });
 
-const completeSeries = asyncHandler(async (req, res) => {
+const completeFlashcardSeries = asyncHandler(async (req, res) => {
   try {
     const { seriesId } = req.params;
 
-    const series = await Series.findById(seriesId);
+    const series = await FlashcardSeries.findById(seriesId);
     if (!series) {
       return res.status(404).json({
         success: false,
-        message: 'Series not found'
+        message: 'FlashcardSeries not found'
       });
     }
 
     if (series.status !== 'active') {
       return res.status(400).json({
         success: false,
-        message: 'Series is already completed'
+        message: 'FlashcardSeries is already completed'
       });
     }
 
-    await series.completeSeries();
+    await series.completeFlashcardSeries();
 
     res.status(200).json({
       success: true,
-      message: 'Series completed successfully',
+      message: 'FlashcardSeries completed successfully',
       data: {
         seriesId: series._id,
         status: series.status,
@@ -528,14 +529,14 @@ const getFilterOptions = asyncHandler(async (req, res) => {
 });
 
 export {
-  getAllSeries,
-  createSeries,
-  getSeries,
+  getAllFlashcardSeries,
+  createFlashcardSeries,
+  getFlashcardSeries,
   startSession,
   recordInteraction,
   completeSession,
   deleteSession,
-  deleteSeries,
-  completeSeries,
+  deleteFlashcardSeries,
+  completeFlashcardSeries,
   getFilterOptions
 };

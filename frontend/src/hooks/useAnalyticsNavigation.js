@@ -7,7 +7,7 @@ export const useAnalyticsNavigation = () => {
   // Handle session resume navigation (from ActiveSessionsWidget)
   const handleSessionResume = useCallback((session) => {
     if (session.type === 'Flashcard') {
-      navigate('/study', {
+      navigate('/new-study', {
         state: {
           seriesId: session.seriesId,
           sessionId: session.sessionId,
@@ -15,7 +15,7 @@ export const useAnalyticsNavigation = () => {
         }
       });
     } else {
-      navigate('/mcq-study', {
+      navigate('/new-mcq-study', {
         state: {
           seriesId: session.seriesId,
           sessionId: session.sessionId,

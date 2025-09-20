@@ -9,6 +9,8 @@ import BrowseSeries from './pages/BrowseSeries';
 import CreateMCQSeries from './pages/CreateMCQSeries';
 import MCQSession from './pages/MCQSession';
 import BrowseMCQSeries from './pages/BrowseMCQSeries';
+import NewStudySession from './pages/NewStudySession';
+import NewMCQSession from './pages/NewMCQSession';
 import './App.css';
 
 function AppContent() {
@@ -37,8 +39,10 @@ function AppContent() {
       <Route path="/browse-mcq-series" element={<ErrorBoundary><BrowseMCQSeries /></ErrorBoundary>} />
       <Route path="/create-series" element={<ErrorBoundary><CreateSeries /></ErrorBoundary>} />
       <Route path="/study" element={<ErrorBoundary><StudySession /></ErrorBoundary>} />
+      <Route path="/new-study" element={<ErrorBoundary><NewStudySession /></ErrorBoundary>} />
       <Route path="/create-mcq-series" element={<ErrorBoundary><CreateMCQSeries /></ErrorBoundary>} />
       <Route path="/mcq-study" element={<ErrorBoundary><MCQSession /></ErrorBoundary>} />
+      <Route path="/new-mcq-study" element={<ErrorBoundary><NewMCQSession /></ErrorBoundary>} />
       <Route
         path="/dashboard"
         element={

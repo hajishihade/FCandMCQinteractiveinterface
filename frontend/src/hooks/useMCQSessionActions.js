@@ -13,7 +13,7 @@ export const useMCQSessionActions = (refetchData) => {
 
   const handleSessionClick = useCallback((seriesId, sessionId, sessionStatus, session, seriesItem) => {
     if (sessionStatus === 'active') {
-      navigate('/mcq-study', {
+      navigate('/new-mcq-study', {
         state: { seriesId, sessionId, mode: 'continue' }
       });
     } else if (sessionStatus === 'completed') {
@@ -63,7 +63,7 @@ export const useMCQSessionActions = (refetchData) => {
         if (questionIds.length > 0) {
           const response = await mcqSessionAPI.start(modalState.selectedSeries._id, questionIds, sessionId);
 
-          navigate('/mcq-study', {
+          navigate('/new-mcq-study', {
             state: {
               seriesId: modalState.selectedSeries._id,
               sessionId: response.data.sessionId,
@@ -77,7 +77,7 @@ export const useMCQSessionActions = (refetchData) => {
         // Create new session
         const response = await mcqSessionAPI.start(modalState.selectedSeries._id, questionIds);
 
-        navigate('/mcq-study', {
+        navigate('/new-mcq-study', {
           state: {
             seriesId: modalState.selectedSeries._id,
             sessionId: response.data.sessionId,

@@ -25,8 +25,6 @@ export const useMCQData = () => {
 
       // Validate MCQ series response (Note: different response format)
       if (seriesResponse?.data && Array.isArray(seriesResponse.data)) {
-        console.log('=== NEW ARCHITECTURE MCQ DATA ===');
-        console.log('Series count:', seriesResponse.data.length);
         setSeries(seriesResponse.data);
       } else {
         console.error('Invalid MCQ series API response format:', seriesResponse);

@@ -13,7 +13,7 @@ export const useSessionActions = (refetchData) => {
 
   const handleSessionClick = useCallback((seriesId, sessionId, sessionStatus, session, seriesItem) => {
     if (sessionStatus === 'active') {
-      navigate('/study', {
+      navigate('/new-study', {
         state: { seriesId, sessionId, mode: 'continue' }
       });
     } else if (sessionStatus === 'completed') {
@@ -63,7 +63,7 @@ export const useSessionActions = (refetchData) => {
         if (cardIds.length > 0) {
           const response = await sessionAPI.start(modalState.selectedSeries._id, cardIds, sessionId);
 
-          navigate('/study', {
+          navigate('/new-study', {
             state: {
               seriesId: modalState.selectedSeries._id,
               sessionId: response.data.data.sessionId,
@@ -77,7 +77,7 @@ export const useSessionActions = (refetchData) => {
         // Create new session
         const response = await sessionAPI.start(modalState.selectedSeries._id, cardIds);
 
-        navigate('/study', {
+        navigate('/new-study', {
           state: {
             seriesId: modalState.selectedSeries._id,
             sessionId: response.data.data.sessionId,

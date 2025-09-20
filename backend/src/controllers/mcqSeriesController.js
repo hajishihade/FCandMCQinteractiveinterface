@@ -1,18 +1,18 @@
-import MCQSeries from '../models/MCQSeries.js';
+import MCQSeriesNew from '../models/MCQSeriesNew.js';
 import { body, validationResult } from 'express-validator';
 
-class MCQSeriesController {
+class MCQSeriesNewController {
 
   static async getAll(req, res) {
     try {
       const { limit = 10, skip = 0 } = req.query;
 
-      const series = await MCQSeries.find()
+      const series = await MCQSeriesNew.find()
         .sort({ updatedAt: -1 })
         .skip(parseInt(skip))
         .limit(parseInt(limit));
 
-      const total = await MCQSeries.countDocuments();
+      const total = await MCQSeriesNew.countDocuments();
 
       res.json({
         success: true,
@@ -39,7 +39,7 @@ class MCQSeriesController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeries.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId);
 
       if (!series) {
         return res.status(404).json({
@@ -76,7 +76,7 @@ class MCQSeriesController {
 
       const { title } = req.body;
 
-      const series = new MCQSeries({ title });
+      const series = new MCQSeriesNew({ title });
       await series.save();
 
       res.status(201).json({
@@ -114,7 +114,7 @@ class MCQSeriesController {
       const { seriesId } = req.params;
       const { questionIds, generatedFrom } = req.body;
 
-      const series = await MCQSeries.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId);
 
       if (!series) {
         return res.status(404).json({
@@ -187,7 +187,7 @@ class MCQSeriesController {
         timeSpent
       } = req.body;
 
-      const series = await MCQSeries.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId);
 
       if (!series) {
         return res.status(404).json({
@@ -262,7 +262,7 @@ class MCQSeriesController {
     try {
       const { seriesId, sessionId } = req.params;
 
-      const series = await MCQSeries.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId);
 
       if (!series) {
         return res.status(404).json({
@@ -320,7 +320,7 @@ class MCQSeriesController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeries.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId);
 
       if (!series) {
         return res.status(404).json({
@@ -360,7 +360,7 @@ class MCQSeriesController {
     try {
       const { seriesId, sessionId } = req.params;
 
-      const series = await MCQSeries.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId);
 
       if (!series) {
         return res.status(404).json({
@@ -390,7 +390,7 @@ class MCQSeriesController {
 
       // If this was the last session, delete the entire series
       if (series.sessions.length === 0) {
-        await MCQSeries.findByIdAndDelete(series._id);
+        await MCQSeriesNew.findByIdAndDelete(series._id);
 
         res.json({
           success: true,
@@ -431,7 +431,7 @@ class MCQSeriesController {
     try {
       const { seriesId } = req.params;
 
-      const series = await MCQSeries.findById(seriesId);
+      const series = await MCQSeriesNew.findById(seriesId);
       if (!series) {
         return res.status(404).json({
           success: false,
@@ -440,7 +440,7 @@ class MCQSeriesController {
       }
 
       // Delete the entire series
-      await MCQSeries.findByIdAndDelete(seriesId);
+      await MCQSeriesNew.findByIdAndDelete(seriesId);
 
       res.json({
         success: true,
@@ -462,7 +462,7 @@ class MCQSeriesController {
 }
 
 // Validation middleware
-MCQSeriesController.createValidation = [
+MCQSeriesNewController.createValidation = [
   body('title')
     .trim()
     .isLength({ min: 1, max: 200 })
@@ -471,7 +471,7 @@ MCQSeriesController.createValidation = [
     .withMessage('Title is required')
 ];
 
-MCQSeriesController.startSessionValidation = [
+MCQSeriesNewController.startSessionValidation = [
   body('questionIds')
     .isArray({ min: 1 })
     .withMessage('questionIds must be a non-empty array'),
@@ -496,7 +496,7 @@ MCQSeriesController.startSessionValidation = [
     })
 ];
 
-MCQSeriesController.recordInteractionValidation = [
+MCQSeriesNewController.recordInteractionValidation = [
   body('questionId')
     .isInt({ min: 0 })
     .withMessage('questionId must be a non-negative integer'),
@@ -517,4 +517,4 @@ MCQSeriesController.recordInteractionValidation = [
     .withMessage('timeSpent must be a positive integer')
 ];
 
-export default MCQSeriesController;
+export default MCQSeriesNewController;

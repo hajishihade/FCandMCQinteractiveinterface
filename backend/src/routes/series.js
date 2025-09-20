@@ -1,14 +1,14 @@
 import express from 'express';
 import {
-  getAllSeries,
-  createSeries,
-  getSeries,
+  getAllFlashcardSeries as getAllSeries,
+  createFlashcardSeries as createSeries,
+  getFlashcardSeries as getSeries,
   startSession,
   recordInteraction,
   completeSession,
   deleteSession,
-  deleteSeries,
-  completeSeries,
+  deleteFlashcardSeries as deleteSeries,
+  completeFlashcardSeries as completeSeries,
   getFilterOptions
 } from '../controllers/seriesController.js';
 import {

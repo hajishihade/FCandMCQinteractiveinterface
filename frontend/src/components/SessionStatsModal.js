@@ -26,10 +26,6 @@ const SessionStatsModal = ({ isOpen, onClose, sessionData, seriesTitle, isFlashc
   // Analytics processing hook - comprehensive stats calculation
   const analytics = useSessionAnalytics(sessionData, itemsWithContent, isFlashcard);
 
-  console.log('=== ENHANCED MODAL DEBUG ===');
-  console.log('Session data:', sessionData);
-  console.log('Items with content:', itemsWithContent);
-  console.log('Analytics:', analytics);
 
   if (!isOpen || !sessionData) return null;
 

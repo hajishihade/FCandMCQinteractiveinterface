@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { connectDB } from '../config/database.js';
+import { connectSeriesDB } from '../config/seriesDatabase.js';
 import flashcardRoutes from './routes/flashcards.js';
 import seriesRoutes from './routes/series.js';
 import mcqRoutes from './routes/mcqs.js';
@@ -52,6 +53,7 @@ const registerRoutes = () => {
 const startServer = async () => {
   try {
     await connectDB();
+    await connectSeriesDB();
 
     setupMiddleware();
     registerRoutes();
