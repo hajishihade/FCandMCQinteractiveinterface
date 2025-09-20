@@ -1,17 +1,47 @@
+/**
+ * Navigation Header Component
+ *
+ * Reusable header component for navigation between study modes.
+ * Includes intelligent prefetching on hover for instant navigation.
+ *
+ * Features:
+ * - Three-way toggle (Flashcards, MCQ, Tables)
+ * - Dashboard navigation button
+ * - Create new series button
+ * - Prefetching on hover for instant page loads
+ * - Backward compatibility for legacy implementations
+ *
+ * Performance optimizations:
+ * - React.memo for preventing unnecessary re-renders
+ * - useCallback to memoize functions
+ * - Prefetch data on hover before navigation
+ */
+
 import React, { useCallback } from 'react';
 import { prefetchRoute } from '../../utils/prefetch';
 
+/**
+ * Navigation Header
+ *
+ * @param {Object} props
+ * @param {string} props.currentMode - Active mode ('flashcards' | 'mcq' | 'tables')
+ * @param {Function} props.onNavigateDashboard - Handler for dashboard navigation
+ * @param {Function} props.onToggleMode - Handler for mode switching
+ * @param {Function} props.onCreateClick - Handler for create button
+ * @param {Array} props.supportedModes - Available modes to display
+ * @returns {JSX.Element} Memoized navigation header
+ */
 const NavigationHeader = React.memo(({
-  currentMode = 'flashcards', // 'flashcards' | 'mcq' | 'tables'
+  currentMode = 'flashcards',
   onNavigateDashboard,
   onToggleMode,
   onCreateClick,
-  supportedModes = ['flashcards', 'mcq'] // Default for backward compatibility
+  supportedModes = ['flashcards', 'mcq'] // Backward compatibility
 }) => {
-  // No-op function to avoid creating new functions on each render
+  // Stable no-op function for disabled buttons
   const noOp = useCallback(() => {}, []);
 
-  // Mode display names and routes
+  // Configuration for mode display and routing
   const modeDisplayNames = {
     flashcards: 'Flashcards',
     mcq: 'MCQ',
@@ -24,18 +54,18 @@ const NavigationHeader = React.memo(({
     tables: '/browse-table-series'
   };
 
-  // Handle mode toggle with backward compatibility
+  /**
+   * Handle mode toggle with backward compatibility
+   * Supports both legacy (no params) and new (mode param) signatures
+   */
   const handleModeToggle = useCallback((mode) => {
     if (currentMode === mode) return noOp;
 
-    // Support both old and new onToggleMode signatures
     if (typeof onToggleMode === 'function') {
-      // Try new signature (mode as parameter) first
       try {
-        onToggleMode(mode);
+        onToggleMode(mode); // New signature
       } catch (error) {
-        // Fallback to old signature (no parameters)
-        onToggleMode();
+        onToggleMode(); // Legacy signature fallback
       }
     }
   }, [currentMode, onToggleMode, noOp]);

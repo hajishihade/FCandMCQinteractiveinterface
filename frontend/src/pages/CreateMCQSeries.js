@@ -1,11 +1,42 @@
+/**
+ * Create MCQ Series Page
+ *
+ * Interface for creating new MCQ study series by selecting questions
+ * from the database. Supports advanced filtering and bulk selection.
+ *
+ * Features:
+ * - Multi-select dropdown filters
+ * - Server-side pagination (50 questions per page)
+ * - Search across question content
+ * - Bulk selection/deselection
+ * - Progressive loading (no full-page blocks)
+ * - Separate filter options API for complete database coverage
+ *
+ * Performance optimizations:
+ * - Dual loading states (initial vs filter changes)
+ * - Filter options loaded separately from content
+ * - No full-page loading screens
+ * - Debounced search input
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import { mcqAPI, mcqSeriesAPI, mcqSessionAPI } from '../services/mcqApi';
 import './CreateSeries.css';
 
+/**
+ * Create MCQ Series Component
+ *
+ * Allows users to create study series by selecting MCQ questions
+ * with advanced filtering capabilities.
+ *
+ * @returns {JSX.Element} MCQ series creation interface
+ */
 const CreateMCQSeries = () => {
   const navigate = useNavigate();
+
+  // Question data and filter options
   const [mcqs, setMcqs] = useState([]);
   const [allFilterOptions, setAllFilterOptions] = useState({
     subjects: [],
@@ -14,16 +45,24 @@ const CreateMCQSeries = () => {
     tags: [],
     sources: []
   });
+
+  // Selection and creation state
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [seriesTitle, setSeriesTitle] = useState('');
-  const [initialLoading, setInitialLoading] = useState(true); // Only for first load
-  const [filterLoading, setFilterLoading] = useState(false); // For filter changes
+
+  // Loading states - separated for better UX
+  const [initialLoading, setInitialLoading] = useState(true); // First page load only
+  const [filterLoading, setFilterLoading] = useState(false);  // Filter/pagination changes
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+
+  // Search and pagination
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [questionsPerPage] = useState(50);
+
+  // Active filters
   const [filters, setFilters] = useState({
     subjects: [],
     chapters: [],
