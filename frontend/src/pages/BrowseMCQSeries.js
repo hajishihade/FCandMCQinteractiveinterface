@@ -67,52 +67,7 @@ const BrowseMCQSeries = () => {
   };
   const handleCreateClick = () => navigate('/create-mcq-series');
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="browse-loading">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="browse-container">
-        <div className="error-container">
-          <h2>Error Loading MCQ Series</h2>
-          <p>{error}</p>
-          <button onClick={fetchData} className="retry-btn">
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Empty state
-  if (!loading && series.length === 0) {
-    return (
-      <div className="browse-container">
-        <NavigationHeader
-          currentMode="mcq"
-          supportedModes={['flashcards', 'mcq', 'tables']}
-          onNavigateDashboard={handleNavigateDashboard}
-          onToggleMode={handleToggleMode}
-          onCreateClick={handleCreateClick}
-        />
-
-        <div className="empty-container">
-          <h2>No MCQ Series Yet</h2>
-          <p>Create your first MCQ series to start studying</p>
-          <button onClick={handleCreateClick} className="primary-btn">
-            Create MCQ Series
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // NEVER block the entire page for loading - show the UI immediately
 
   return (
     <div className="browse-container">
@@ -136,12 +91,39 @@ const BrowseMCQSeries = () => {
         totalSeries={series.length}
       />
 
-      <MCQSeriesList
-        series={processedSeries}
-        onSessionClick={handleSessionClick}
-        onNewSession={handleNewSession}
-        onEditSession={handleEditSession}
-      />
+      {/* Show content immediately, with loading state inline */}
+      {error ? (
+        <div className="error-container">
+          <h2>Error Loading MCQ Series</h2>
+          <p>{error}</p>
+          <button onClick={() => fetchData(true)} className="retry-btn">
+            Retry
+          </button>
+        </div>
+      ) : !loading && series.length === 0 ? (
+        <div className="empty-container">
+          <h2>No MCQ Series Yet</h2>
+          <p>Create your first MCQ series to start studying</p>
+          <button onClick={handleCreateClick} className="primary-btn">
+            Create MCQ Series
+          </button>
+        </div>
+      ) : (
+        <div style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+          {loading && !series.length ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
+              Loading MCQ series...
+            </div>
+          ) : (
+            <MCQSeriesList
+              series={processedSeries}
+              onSessionClick={handleSessionClick}
+              onNewSession={handleNewSession}
+              onEditSession={handleEditSession}
+            />
+          )}
+        </div>
+      )}
 
       {/* Modals - MCQ-specific */}
       {modalState.type === 'recipe' && (

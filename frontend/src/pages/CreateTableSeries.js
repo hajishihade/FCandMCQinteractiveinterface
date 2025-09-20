@@ -305,14 +305,7 @@ const CreateTableSeries = () => {
     }
   };
 
-  // Only show full page loading on initial load
-  if (initialLoading) {
-    return (
-      <div className="create-series-loading">
-        <div className="loading-spinner">Loading Table Quizzes...</div>
-      </div>
-    );
-  }
+  // NEVER show full page loading - always show the UI
 
   return (
     <div className="create-series-container">

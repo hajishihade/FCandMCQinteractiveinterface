@@ -63,52 +63,7 @@ const NewBrowseSeries = () => {
   };
   const handleCreateClick = () => navigate('/create-series');
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="browse-loading">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="browse-container">
-        <div className="error-container">
-          <h2>Error Loading Series</h2>
-          <p>{error}</p>
-          <button onClick={fetchData} className="retry-btn">
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Empty state
-  if (!loading && series.length === 0) {
-    return (
-      <div className="browse-container">
-        <NavigationHeader
-          currentMode="flashcards"
-          supportedModes={['flashcards', 'mcq', 'tables']}
-          onNavigateDashboard={handleNavigateDashboard}
-          onToggleMode={handleToggleMode}
-          onCreateClick={handleCreateClick}
-        />
-
-        <div className="empty-container">
-          <h2>No Series Yet</h2>
-          <p>Create your first flashcard series to start studying</p>
-          <button onClick={handleCreateClick} className="primary-btn">
-            Create Flashcard Series
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // NEVER block the entire page - show UI immediately
 
   return (
     <div className="browse-container">
@@ -132,12 +87,39 @@ const NewBrowseSeries = () => {
         totalSeries={series.length}
       />
 
-      <SeriesList
-        series={processedSeries}
-        onSessionClick={handleSessionClick}
-        onNewSession={handleNewSession}
-        onEditSession={handleEditSession}
-      />
+      {/* Show content immediately */}
+      {error ? (
+        <div className="error-container">
+          <h2>Error Loading Series</h2>
+          <p>{error}</p>
+          <button onClick={() => fetchData(true)} className="retry-btn">
+            Retry
+          </button>
+        </div>
+      ) : !loading && series.length === 0 ? (
+        <div className="empty-container">
+          <h2>No Series Yet</h2>
+          <p>Create your first flashcard series to start studying</p>
+          <button onClick={handleCreateClick} className="primary-btn">
+            Create Flashcard Series
+          </button>
+        </div>
+      ) : (
+        <div style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+          {loading && !series.length ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
+              Loading flashcard series...
+            </div>
+          ) : (
+            <SeriesList
+              series={processedSeries}
+              onSessionClick={handleSessionClick}
+              onNewSession={handleNewSession}
+              onEditSession={handleEditSession}
+            />
+          )}
+        </div>
+      )}
 
       {/* Modals - Reuse existing components */}
       {modalState.type === 'recipe' && (
