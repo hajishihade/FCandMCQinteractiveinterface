@@ -1,7 +1,7 @@
 .create-series-container {
   min-height: 100vh;
   background: var(--gradient-primary);
-  padding: 15px;
+  padding: 15px 0;
   margin: 0;
   box-sizing: border-box;
   overflow-x: hidden;
@@ -23,8 +23,9 @@
 }
 
 .create-series-header {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
+  padding: 0 15px;
   display: flex;
   justify-content: flex-start;
   align-items: center;
@@ -71,8 +72,9 @@
 }
 
 .filters-section {
-  max-width: 1200px;
-  margin: 0 auto 20px auto;
+  width: 100%;
+  margin: 0 0 20px 0;
+  padding: 0 15px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -102,20 +104,23 @@
 
 .multi-select-filters {
   display: flex;
-  gap: 15px;
+  gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+  width: 100%;
+  padding: 0;
 }
 
 .filter-select {
   flex: 1;
-  min-width: 200px;
-  max-width: 300px;
+  min-width: calc(20% - 10px);
+  max-width: none;
 }
 
 .series-creation-line {
-  max-width: 1200px;
-  margin: 20px auto 30px auto;
+  width: 100%;
+  margin: 20px 0 30px 0;
+  padding: 0 15px;
   display: flex;
   gap: 20px;
   align-items: center;
@@ -210,12 +215,12 @@
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  padding: 10px 0;
+  padding: 10px 15px;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--white-01);
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .filter-count {
@@ -286,10 +291,10 @@
 }
 
 .selection-controls {
-  max-width: 1200px;
-  margin: 0 auto 20px auto;
+  width: 100%;
+  margin: 0 0 20px 0;
   background: rgba(255,255,255,0.08);
-  padding: 15px 20px;
+  padding: 15px;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.15);
 }
@@ -336,11 +341,12 @@
 }
 
 .flashcards-grid {
-  max-width: 1200px;
-  margin: 0 auto 100px auto;
+  width: 100%;
+  margin: 0 0 100px 0;
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
 }
 
 .flashcard-item {

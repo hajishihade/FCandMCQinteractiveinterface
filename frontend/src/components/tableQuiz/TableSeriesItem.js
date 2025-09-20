@@ -18,32 +18,37 @@ const TableSeriesItem = React.memo(({
     <React.Fragment>
       {showDivider && <div className="series-divider"></div>}
 
-      <div className="series-item">
-        <div className="series-header">
-          <h2 className="series-title">{title}</h2>
-          <div className="series-progress">({completedCount}/{sessions.length})</div>
+      <div className="series-container">
+        {/* Title section - completely separate and centered */}
+        <div className="series-title-section">
+          <h2 className="series-title-centered">
+            {title} <span className="series-progress">({completedCount}/{sessions.length})</span>
+          </h2>
         </div>
 
-        <div className="sessions-row">
-          {sessions.map((session) => (
-            <TableSessionCard
-              key={session.sessionId}
-              session={session}
-              seriesId={seriesId}
-              seriesData={seriesData}
-              onClick={onSessionClick}
-              onEdit={onEditSession}
-            />
-          ))}
+        {/* Boxes section - separate container starting from left edge */}
+        <div className="series-boxes-section">
+          <div className="sessions-row-left">
+            {sessions.map((session) => (
+              <TableSessionCard
+                key={session.sessionId}
+                session={session}
+                seriesId={seriesId}
+                seriesData={seriesData}
+                onClick={onSessionClick}
+                onEdit={onEditSession}
+              />
+            ))}
 
-          {status === 'active' && !activeSession && (
-            <button
-              className="session-btn new"
-              onClick={handleNewSession}
-            >
-              +
-            </button>
-          )}
+            {status === 'active' && !activeSession && (
+              <button
+                className="session-btn new"
+                onClick={handleNewSession}
+              >
+                +
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </React.Fragment>

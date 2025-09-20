@@ -94,10 +94,6 @@ const FilterSection = React.memo(({
           Clear All
         </button>
 
-        <div className="filter-summary">
-          Showing {seriesCount} of {totalSeries} series
-        </div>
-
       </div>
     </div>
   );
