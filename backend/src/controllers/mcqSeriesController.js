@@ -1,8 +1,45 @@
+/**
+ * MCQ Series Controller
+ *
+ * Manages MCQ study series with session tracking and progress monitoring.
+ * Handles the lifecycle of MCQ series from creation to completion.
+ *
+ * Features:
+ * - Series creation and management
+ * - Session lifecycle (start, interact, complete)
+ * - Question interaction recording
+ * - Progress tracking per session
+ * - Session validation and cleanup
+ *
+ * Architecture:
+ * - Class-based controller with static methods
+ * - Built-in validation middleware
+ * - Lean queries for performance
+ * - Atomic operations for data consistency
+ *
+ * Performance optimizations:
+ * - .lean() for read-only operations
+ * - Field projection to reduce payload
+ * - Sorted by updatedAt for recent items first
+ */
+
 import MCQSeriesNew from '../models/MCQSeriesNew.js';
 import { body, validationResult } from 'express-validator';
 
 class MCQSeriesNewController {
 
+  /**
+   * Get all MCQ series with pagination
+   *
+   * @route GET /api/mcq-series
+   * @query {number} limit - Items per page (default: 10)
+   * @query {number} skip - Number of items to skip
+   *
+   * @returns {Object} Paginated series list with session counts
+   *
+   * @example
+   * GET /api/mcq-series?limit=20&skip=0
+   */
   static async getAll(req, res) {
     try {
       const { limit = 10, skip = 0 } = req.query;
@@ -37,6 +74,14 @@ class MCQSeriesNewController {
     }
   }
 
+  /**
+   * Get single MCQ series by ID
+   *
+   * @route GET /api/mcq-series/:seriesId
+   * @param {string} seriesId - MongoDB ObjectId of series
+   *
+   * @returns {Object} Complete series object with sessions
+   */
   static async getById(req, res) {
     try {
       const { seriesId } = req.params;
@@ -65,6 +110,18 @@ class MCQSeriesNewController {
     }
   }
 
+  /**
+   * Create new MCQ series
+   *
+   * @route POST /api/mcq-series
+   * @body {string} title - Series title (1-200 chars)
+   *
+   * @returns {Object} Created series with ID
+   *
+   * @example
+   * POST /api/mcq-series
+   * Body: { "title": "Biology Chapter 5 Review" }
+   */
   static async create(req, res) {
     try {
       const errors = validationResult(req);
@@ -102,6 +159,18 @@ class MCQSeriesNewController {
     }
   }
 
+  /**
+   * Start new study session within series
+   *
+   * @route POST /api/mcq-series/:seriesId/sessions
+   * @param {string} seriesId - Series ID
+   * @body {Array<number>} questionIds - MCQ question IDs for session
+   * @body {number} generatedFrom - Optional source question ID
+   *
+   * @returns {Object} Session ID and question count
+   *
+   * Enforces single active session per series
+   */
   static async startSession(req, res) {
     try {
       const errors = validationResult(req);
@@ -168,6 +237,23 @@ class MCQSeriesNewController {
     }
   }
 
+  /**
+   * Record user interaction with question
+   *
+   * @route POST /api/mcq-series/:seriesId/sessions/:sessionId/interactions
+   * @param {string} seriesId - Series ID
+   * @param {number} sessionId - Session ID
+   * @body {number} questionId - Question being answered
+   * @body {string} selectedAnswer - User's answer (A-E)
+   * @body {string} correctAnswer - Correct answer (A-E)
+   * @body {string} difficulty - Perceived difficulty (Easy/Medium/Hard)
+   * @body {string} confidenceWhileSolving - Confidence level (High/Low)
+   * @body {number} timeSpent - Time in seconds
+   *
+   * @returns {Object} Correctness result
+   *
+   * Used for analytics and progress tracking
+   */
   static async recordInteraction(req, res) {
     try {
       const errors = validationResult(req);
@@ -260,6 +346,17 @@ class MCQSeriesNewController {
     }
   }
 
+  /**
+   * Complete active study session
+   *
+   * @route POST /api/mcq-series/:seriesId/sessions/:sessionId/complete
+   * @param {string} seriesId - Series ID
+   * @param {number} sessionId - Session ID
+   *
+   * @returns {Object} Success confirmation
+   *
+   * Validates all questions have been answered
+   */
   static async completeSession(req, res) {
     try {
       const { seriesId, sessionId } = req.params;
@@ -358,6 +455,18 @@ class MCQSeriesNewController {
     }
   }
 
+  /**
+   * Delete incomplete session
+   *
+   * @route DELETE /api/mcq-series/:seriesId/sessions/:sessionId
+   * @param {string} seriesId - Series ID
+   * @param {number} sessionId - Session ID
+   *
+   * @returns {Object} Deletion status and remaining sessions
+   *
+   * Deletes series if last session removed
+   * Cannot delete completed sessions
+   */
   static async deleteSession(req, res) {
     try {
       const { seriesId, sessionId } = req.params;
@@ -429,6 +538,16 @@ class MCQSeriesNewController {
     }
   }
 
+  /**
+   * Delete entire MCQ series
+   *
+   * @route DELETE /api/mcq-series/:seriesId
+   * @param {string} seriesId - Series ID to delete
+   *
+   * @returns {Object} Deletion confirmation
+   *
+   * Removes series and all associated sessions
+   */
   static async deleteSeries(req, res) {
     try {
       const { seriesId } = req.params;

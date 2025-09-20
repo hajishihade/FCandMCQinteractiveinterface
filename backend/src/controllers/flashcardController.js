@@ -1,6 +1,39 @@
+/**
+ * Flashcard Controller
+ *
+ * Handles CRUD operations for flashcard content retrieval.
+ * Provides endpoints for fetching flashcards with filtering and pagination.
+ *
+ * Features:
+ * - Paginated flashcard retrieval with search
+ * - Batch fetching by multiple IDs
+ * - Subject-based filtering
+ * - Full-text search across front/back text
+ *
+ * Performance considerations:
+ * - Uses pagination to limit memory usage
+ * - Sorted by cardId for consistent ordering
+ * - Batch operations for efficient multi-card fetches
+ */
+
 import Flashcard from '../models/Flashcard.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
+/**
+ * Get all flashcards with filtering and pagination
+ *
+ * @route GET /api/flashcards
+ * @query {number} page - Page number for pagination (default: 1)
+ * @query {number} limit - Items per page (default: 10)
+ * @query {string} search - Search term for front/back text or subject
+ * @query {string} subject - Filter by subject
+ *
+ * @returns {Object} Paginated flashcard list with metadata
+ *
+ * @example
+ * // Search for "photosynthesis" flashcards
+ * GET /api/flashcards?search=photosynthesis&limit=20
+ */
 const getAllFlashcards = asyncHandler(async (req, res) => {
   const { page, limit, skip } = req.pagination || { page: 1, limit: 10, skip: 0 };
   const { search, subject } = req.query;
@@ -43,6 +76,18 @@ const getAllFlashcards = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Get a single flashcard by card ID
+ *
+ * @route GET /api/flashcards/:cardId
+ * @param {number} cardId - Unique flashcard identifier
+ *
+ * @returns {Object} Single flashcard object
+ *
+ * @example
+ * // Get flashcard with ID 42
+ * GET /api/flashcards/42
+ */
 const getFlashcardByCardId = asyncHandler(async (req, res) => {
   const { cardId } = req.params;
 
@@ -63,6 +108,22 @@ const getFlashcardByCardId = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Get multiple flashcards by card IDs (batch fetch)
+ *
+ * @route POST /api/flashcards/batch
+ * @body {Array<number>} cardIds - Array of flashcard IDs to fetch
+ *
+ * @returns {Object} Array of flashcard objects
+ * @returns {Array} missingCardIds - IDs that weren't found (if any)
+ *
+ * @example
+ * // Fetch flashcards 1, 5, and 10
+ * POST /api/flashcards/batch
+ * Body: { "cardIds": [1, 5, 10] }
+ *
+ * Used by session components to load all cards for a study session
+ */
 const getFlashcardsByCardIds = asyncHandler(async (req, res) => {
   const { cardIds } = req.body;
 

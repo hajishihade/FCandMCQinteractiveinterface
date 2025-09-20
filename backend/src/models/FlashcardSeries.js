@@ -1,6 +1,34 @@
+/**
+ * Flashcard Series Model
+ *
+ * Manages flashcard study series with embedded sessions and interactions.
+ * Similar architecture to MCQSeries but for flashcard content.
+ *
+ * Schema hierarchy:
+ * - FlashcardSeries (root)
+ *   - Sessions (embedded array)
+ *     - Cards with interactions (embedded array)
+ *
+ * Features:
+ * - Session-based studying with progress tracking
+ * - Card interaction recording (right/wrong, difficulty, confidence)
+ * - Time tracking per card
+ * - Auto-incrementing session IDs
+ * - Atomic operations via embedded documents
+ *
+ * Performance:
+ * - Uses separate seriesConnection for isolation
+ * - Embedded structure reduces database queries
+ * - Methods for direct data manipulation
+ */
+
 import mongoose from 'mongoose';
 import { seriesConnection } from '../../config/seriesDatabase.js';
 
+/**
+ * Schema for flashcard interaction data
+ * Records user performance on individual cards
+ */
 const cardInteractionSchema = new mongoose.Schema({
   cardId: {
     type: Number,
@@ -30,6 +58,10 @@ const cardInteractionSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+/**
+ * Schema for flashcard study session
+ * Contains cards studied and completion status
+ */
 const flashcardSessionSchema = new mongoose.Schema({
   sessionId: {
     type: Number,
@@ -55,6 +87,10 @@ const flashcardSessionSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+/**
+ * Root schema for flashcard study series
+ * Manages multiple sessions with overall progress
+ */
 const flashcardSeriesSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -78,12 +114,26 @@ const flashcardSeriesSchema = new mongoose.Schema({
   collection: 'flashcards'
 });
 
-// Instance methods
+// Static and Instance methods
+
+/**
+ * Create new flashcard series
+ * @static
+ * @param {Object} seriesData - Series initialization data
+ * @returns {Promise<Object>} Created series document
+ */
 flashcardSeriesSchema.statics.createSeries = async function(seriesData) {
   const series = new this(seriesData);
   return await series.save();
 };
 
+/**
+ * Add new session to series
+ * @param {Object} sessionData - Session configuration
+ * @returns {Promise<Object>} Updated series document
+ *
+ * Auto-generates sequential session ID
+ */
 flashcardSeriesSchema.methods.addSession = function(sessionData) {
   const nextSessionId = this.sessions.length + 1;
   const newSession = {
@@ -94,10 +144,25 @@ flashcardSeriesSchema.methods.addSession = function(sessionData) {
   return this.save();
 };
 
+/**
+ * Get session by ID
+ * @param {number} sessionId - Session identifier
+ * @returns {Object|undefined} Session object or undefined
+ */
 flashcardSeriesSchema.methods.getSession = function(sessionId) {
   return this.sessions.find(session => session.sessionId === sessionId);
 };
 
+/**
+ * Record card interaction within session
+ * @param {number} sessionId - Target session ID
+ * @param {number} cardId - Flashcard ID
+ * @param {Object} interactionData - Interaction details (result, difficulty, confidence, time)
+ * @returns {Promise<Object>} Updated series document
+ * @throws {Error} If session not found
+ *
+ * Updates existing card or adds new card interaction
+ */
 flashcardSeriesSchema.methods.addCardInteraction = function(sessionId, cardId, interactionData) {
   const session = this.getSession(sessionId);
   if (!session) {
@@ -119,6 +184,12 @@ flashcardSeriesSchema.methods.addCardInteraction = function(sessionId, cardId, i
   return this.save();
 };
 
+/**
+ * Mark session as completed
+ * @param {number} sessionId - Session to complete
+ * @returns {Promise<Object>} Updated series document
+ * @throws {Error} If session not found
+ */
 flashcardSeriesSchema.methods.completeSession = function(sessionId) {
   const session = this.getSession(sessionId);
   if (!session) {
@@ -130,6 +201,12 @@ flashcardSeriesSchema.methods.completeSession = function(sessionId) {
   return this.save();
 };
 
+/**
+ * Mark entire series as completed
+ * @returns {Promise<Object>} Updated series document
+ *
+ * Sets completion timestamp and status
+ */
 flashcardSeriesSchema.methods.completeSeries = function() {
   this.status = 'completed';
   this.completedAt = new Date();
