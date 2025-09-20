@@ -1,9 +1,43 @@
+/**
+ * Error Handling Middleware
+ *
+ * Centralized error handling for the application.
+ * Provides consistent error responses and logging.
+ *
+ * Features:
+ * - Async/await error catching
+ * - MongoDB-specific error handling
+ * - Development vs production error details
+ * - Consistent error response format
+ * - 404 route handler
+ */
+
+/**
+ * Wraps async route handlers to catch errors
+ * @param {Function} fn - Async route handler function
+ * @returns {Function} Express middleware function
+ *
+ * Usage: router.get('/', asyncHandler(async (req, res) => {...}))
+ */
 const asyncHandler = (fn) => {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };
 
+/**
+ * Global error handler middleware
+ * @param {Error} err - Error object
+ * @param {Request} req - Express request
+ * @param {Response} res - Express response
+ * @param {Function} next - Next middleware
+ *
+ * Handles:
+ * - ValidationError: Mongoose validation failures
+ * - CastError: Invalid MongoDB ObjectId
+ * - 11000: Duplicate key errors
+ * - Generic errors with stack trace in development
+ */
 const globalErrorHandler = (err, req, res, next) => {
   console.error('Error:', err);
 
@@ -46,6 +80,13 @@ const globalErrorHandler = (err, req, res, next) => {
   });
 };
 
+/**
+ * 404 handler for undefined routes
+ * @param {Request} req - Express request
+ * @param {Response} res - Express response
+ *
+ * Returns consistent 404 error response
+ */
 const notFoundHandler = (req, res) => {
   res.status(404).json({
     success: false,

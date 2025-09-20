@@ -1,5 +1,32 @@
+/**
+ * Table Quiz Model
+ *
+ * Represents table-based quiz content with grid structure.
+ * Stores table data with cells organized by rows and columns.
+ *
+ * Features:
+ * - Grid-based table structure
+ * - Header cell differentiation
+ * - Cell-level Notion integration
+ * - Same categorization as MCQ for consistency
+ *
+ * Schema structure:
+ * - TableQuiz (root)
+ *   - Cells (embedded array with row/column positioning)
+ *
+ * Indexes:
+ * - tableId: Unique identifier
+ * - name: Text search
+ * - Compound indexes for filtering
+ *
+ * ⚠️ IMPROVEMENT: Model name 'table' should match schema name
+ */
+
 import mongoose from 'mongoose';
 
+/**
+ * Schema for individual table cell
+ */
 const TableCellSchema = new mongoose.Schema({
   row: {
     type: Number,
@@ -21,6 +48,10 @@ const TableCellSchema = new mongoose.Schema({
   notionBlockIds: [String]
 }, { _id: false });
 
+/**
+ * Main table quiz schema
+ * Defines grid structure with embedded cells
+ */
 const TableQuizSchema = new mongoose.Schema({
   tableId: {
     type: Number,
@@ -93,17 +124,31 @@ TableQuizSchema.index({ tags: 1 });
 TableQuizSchema.index({ source: 1 });
 
 // Instance methods for table processing
+
+/**
+ * Get all header cells from table
+ * @returns {Array} Array of header cell objects
+ */
 TableQuizSchema.methods.getHeaderCells = function() {
   return this.cells.filter(cell => cell.isHeader);
 };
 
+/**
+ * Get all non-header content cells
+ * @returns {Array} Array of content cell objects
+ */
 TableQuizSchema.methods.getContentCells = function() {
   return this.cells.filter(cell => !cell.isHeader);
 };
 
+/**
+ * Count total content cells (excluding headers)
+ * @returns {number} Count of content cells
+ */
 TableQuizSchema.methods.getTotalContentCells = function() {
   return this.getContentCells().length;
 };
 
 // Use main mongoose connection for content database → collection: "table"
+// ⚠️ INCONSISTENCY: Model name 'table' doesn't match schema naming convention
 export default mongoose.model('table', TableQuizSchema);

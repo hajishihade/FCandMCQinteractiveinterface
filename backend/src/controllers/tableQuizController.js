@@ -1,7 +1,43 @@
+/**
+ * Table Quiz Controller
+ *
+ * Manages table-based quiz content retrieval and filtering.
+ * Provides endpoints for fetching table quizzes with search and statistics.
+ *
+ * Features:
+ * - Advanced filtering with regex patterns
+ * - Full-text search capability
+ * - Batch fetching by multiple IDs
+ * - Filter options extraction
+ * - Statistical aggregations
+ *
+ * Performance optimizations:
+ * - Uses .lean() for read-only operations
+ * - Field projection to reduce payload
+ * - Parallel aggregation queries
+ *
+ * ⚠️ IMPROVEMENT NEEDED: getByIds method missing .lean()
+ */
+
 import TableQuiz from '../models/TableQuiz.js';
 
 class TableQuizController {
 
+  /**
+   * Get all table quizzes with filtering and pagination
+   *
+   * @route GET /api/table-quizzes
+   * @query {number} limit - Items per page (default: 50)
+   * @query {number} skip - Number of items to skip
+   * @query {string} search - Full-text search term
+   * @query {string} subject - Filter by subject
+   * @query {string} chapter - Filter by chapter
+   * @query {string} section - Filter by section
+   * @query {string} tags - Comma-separated tags
+   * @query {string} source - Filter by source
+   *
+   * @returns {Object} Paginated table quiz list
+   */
   static async getAll(req, res) {
     try {
       const {
@@ -65,6 +101,14 @@ class TableQuizController {
     }
   }
 
+  /**
+   * Get single table quiz by ID
+   *
+   * @route GET /api/table-quizzes/:tableId
+   * @param {number} tableId - Unique table quiz identifier
+   *
+   * @returns {Object} Complete table quiz object
+   */
   static async getById(req, res) {
     try {
       const { tableId } = req.params;
@@ -93,6 +137,16 @@ class TableQuizController {
     }
   }
 
+  /**
+   * Get multiple table quizzes by IDs (batch fetch)
+   *
+   * @route POST /api/table-quizzes/batch
+   * @body {Array<number>} tableIds - Array of table quiz IDs
+   *
+   * @returns {Object} Array of table quiz objects
+   *
+   * ⚠️ PERFORMANCE: Should add .lean() to query
+   */
   static async getByIds(req, res) {
     try {
       const { tableIds } = req.body;
@@ -104,9 +158,10 @@ class TableQuizController {
         });
       }
 
+      // IMPROVEMENT: Add .lean() for better performance
       const tableQuizzes = await TableQuiz.find({
         tableId: { $in: tableIds.map(id => parseInt(id)) }
-      }).sort({ tableId: 1 });
+      }).lean().sort({ tableId: 1 });
 
       // Ensure all requested table quizzes were found
       if (tableQuizzes.length !== tableIds.length) {
@@ -135,6 +190,15 @@ class TableQuizController {
     }
   }
 
+  /**
+   * Get available filter options from database
+   *
+   * @route GET /api/table-quizzes/filter-options
+   *
+   * @returns {Object} Available filter values for dropdowns
+   *
+   * Extracts distinct values for all filterable fields
+   */
   static async getFilterOptions(req, res) {
     try {
       const [subjects, chapters, sections, sources, tags] = await Promise.all([
@@ -166,6 +230,15 @@ class TableQuizController {
     }
   }
 
+  /**
+   * Get statistical data about table quizzes
+   *
+   * @route GET /api/table-quizzes/stats
+   *
+   * @returns {Object} Statistics including counts by subject and source
+   *
+   * Uses MongoDB aggregation pipeline for efficient counting
+   */
   static async getStats(req, res) {
     try {
       const [total, bySubject, bySource] = await Promise.all([

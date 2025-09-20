@@ -35,11 +35,20 @@ class TableSeriesController {
     }
   }
 
+  /**
+   * Get single table series by ID
+   *
+   * @route GET /api/table-series/:seriesId
+   * @param {string} seriesId - MongoDB ObjectId
+   *
+   * @returns {Object} Complete series with sessions
+   */
   static async getById(req, res) {
     try {
       const { seriesId } = req.params;
 
-      const series = await TableSeries.findById(seriesId);
+      // ⚠️ IMPROVEMENT: Should add .lean() for read-only operation
+      const series = await TableSeries.findById(seriesId).lean();
 
       if (!series) {
         return res.status(404).json({
