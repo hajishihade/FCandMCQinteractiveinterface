@@ -54,9 +54,13 @@ const NewBrowseSeries = () => {
     fetchData();
   }, [fetchData]);
 
-  // Navigation handlers
+  // Navigation handlers (Enhanced for three-way toggle)
   const handleNavigateDashboard = () => navigate('/');
-  const handleToggleMode = () => navigate('/browse-mcq-series');
+  const handleToggleMode = (mode) => {
+    if (mode === 'mcq') navigate('/browse-mcq-series');
+    if (mode === 'tables') navigate('/browse-table-series');
+    // Stay on flashcards if mode === 'flashcards'
+  };
   const handleCreateClick = () => navigate('/create-series');
 
   // Loading state
@@ -89,6 +93,7 @@ const NewBrowseSeries = () => {
       <div className="browse-container">
         <NavigationHeader
           currentMode="flashcards"
+          supportedModes={['flashcards', 'mcq', 'tables']}
           onNavigateDashboard={handleNavigateDashboard}
           onToggleMode={handleToggleMode}
           onCreateClick={handleCreateClick}
@@ -109,6 +114,7 @@ const NewBrowseSeries = () => {
     <div className="browse-container">
       <NavigationHeader
         currentMode="flashcards"
+        supportedModes={['flashcards', 'mcq', 'tables']}
         onNavigateDashboard={handleNavigateDashboard}
         onToggleMode={handleToggleMode}
         onCreateClick={handleCreateClick}

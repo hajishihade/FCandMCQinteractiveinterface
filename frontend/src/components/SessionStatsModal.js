@@ -15,16 +15,26 @@ import {
 import './SessionStatsModal.css';
 import './EnhancedSessionStats.css';
 
-const SessionStatsModal = ({ isOpen, onClose, sessionData, seriesTitle, isFlashcard = true }) => {
-  // Data fetching hook - gets actual content for cards/questions
+const SessionStatsModal = ({
+  isOpen,
+  onClose,
+  sessionData,
+  seriesTitle,
+  isFlashcard = true, // Backward compatibility
+  studyType = null     // New parameter: 'flashcard' | 'mcq' | 'table'
+}) => {
+  // Determine study type with backward compatibility
+  const actualStudyType = studyType || (isFlashcard ? 'flashcard' : 'mcq');
+
+  // Data fetching hook - gets actual content for cards/questions/tables
   const {
     itemsWithContent,
     loading,
     error
-  } = useSessionStatsData(sessionData, isFlashcard);
+  } = useSessionStatsData(sessionData, actualStudyType);
 
   // Analytics processing hook - comprehensive stats calculation
-  const analytics = useSessionAnalytics(sessionData, itemsWithContent, isFlashcard);
+  const analytics = useSessionAnalytics(sessionData, itemsWithContent, actualStudyType);
 
 
   if (!isOpen || !sessionData) return null;
@@ -52,20 +62,37 @@ const SessionStatsModal = ({ isOpen, onClose, sessionData, seriesTitle, isFlashc
           <SessionOverviewWidget
             analytics={analytics}
             sessionData={sessionData}
-            isFlashcard={isFlashcard}
+            studyType={actualStudyType}
+            isFlashcard={actualStudyType === 'flashcard'} // Backward compatibility
           />
 
-          {/* Individual Items Section */}
-          <SessionItemsList
-            items={itemsWithContent}
-            isFlashcard={isFlashcard}
-            loading={loading}
-          />
+          {/* Individual Items Section - Enhanced for table support */}
+          {actualStudyType === 'table' ? (
+            <div className="table-session-items">
+              <h3>Table Quiz Results</h3>
+              {itemsWithContent.map((table, index) => (
+                <div key={table.tableId || index} className="table-item">
+                  <h4>{table.name}</h4>
+                  <div className="table-stats">
+                    <span>Accuracy: {table.accuracy || 0}%</span>
+                    <span>Cells: {table.correctPlacements || 0}/{table.totalCells || 0}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <SessionItemsList
+              items={itemsWithContent}
+              isFlashcard={actualStudyType === 'flashcard'}
+              loading={loading}
+            />
+          )}
 
           {/* Performance Breakdown */}
           <SessionStatsBreakdown
             analytics={analytics}
-            isFlashcard={isFlashcard}
+            studyType={actualStudyType}
+            isFlashcard={actualStudyType === 'flashcard'} // Backward compatibility
           />
 
           {/* Session Details */}

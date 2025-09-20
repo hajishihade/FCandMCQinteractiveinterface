@@ -1,38 +1,38 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// MCQ Custom Hooks
-import { useMCQData } from '../hooks/useMCQData';
-import { useMCQFiltering } from '../hooks/useMCQFiltering';
-import { useMCQSessionActions } from '../hooks/useMCQSessionActions';
+// Table Quiz Custom Hooks (using mock API for testing)
+import { useTableData } from '../hooks/useTableData';
+import { useTableFiltering } from '../hooks/useTableFiltering';
+import { useTableSessionActions } from '../hooks/useTableSessionActions';
 
-// MCQ Components
-import { MCQSeriesList } from '../components/mcq';
+// Table Quiz Components
+import { TableSeriesList } from '../components/tableQuiz';
 
-// Shared Components (reuse from flashcard system)
+// Shared Components (reuse from flashcard/MCQ system)
 import { NavigationHeader, FilterSection } from '../components/series';
 
 // Modals (enhanced)
-import MCQSessionRecipeModal from '../components/MCQSessionRecipeModal';
+import TableSessionRecipeModal from '../components/TableSessionRecipeModal';
 import SessionStatsModal from '../components/SessionStatsModal';
 
 // Styles (reuse existing)
 import './BrowseSeries.css';
 
-const BrowseMCQSeries = () => {
+const BrowseTableSeries = () => {
   const navigate = useNavigate();
 
-  // Data fetching hook (MCQ-specific)
+  // Data fetching hook (Table-specific)
   const {
     series,
-    allMCQs,
+    allTables,
     filterOptions,
     loading,
     error,
     fetchData
-  } = useMCQData();
+  } = useTableData();
 
-  // Filtering hook (MCQ-specific)
+  // Filtering hook (Table-specific)
   const {
     filters,
     dropdownOpen,
@@ -41,9 +41,9 @@ const BrowseMCQSeries = () => {
     toggleDropdown,
     getDropdownText,
     clearFilters
-  } = useMCQFiltering(series, allMCQs);
+  } = useTableFiltering(series, allTables);
 
-  // Session actions hook (MCQ-specific)
+  // Session actions hook (Table-specific)
   const {
     modalState,
     handleSessionClick,
@@ -51,21 +51,21 @@ const BrowseMCQSeries = () => {
     handleEditSession,
     handleCreateCustomSession,
     closeModal
-  } = useMCQSessionActions(fetchData);
+  } = useTableSessionActions(fetchData);
 
   // Fetch data on mount
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Navigation handlers (Enhanced for three-way toggle)
+  // Navigation handlers (Table-specific)
   const handleNavigateDashboard = () => navigate('/');
   const handleToggleMode = (mode) => {
     if (mode === 'flashcards') navigate('/browse-series');
-    if (mode === 'tables') navigate('/browse-table-series');
-    // Stay on MCQ if mode === 'mcq'
+    if (mode === 'mcq') navigate('/browse-mcq-series');
+    // Stay on tables if mode === 'tables'
   };
-  const handleCreateClick = () => navigate('/create-mcq-series');
+  const handleCreateClick = () => navigate('/create-table-series');
 
   // Loading state
   if (loading) {
@@ -81,7 +81,7 @@ const BrowseMCQSeries = () => {
     return (
       <div className="browse-container">
         <div className="error-container">
-          <h2>Error Loading MCQ Series</h2>
+          <h2>Error Loading Table Series</h2>
           <p>{error}</p>
           <button onClick={fetchData} className="retry-btn">
             Retry
@@ -96,7 +96,7 @@ const BrowseMCQSeries = () => {
     return (
       <div className="browse-container">
         <NavigationHeader
-          currentMode="mcq"
+          currentMode="tables"
           supportedModes={['flashcards', 'mcq', 'tables']}
           onNavigateDashboard={handleNavigateDashboard}
           onToggleMode={handleToggleMode}
@@ -104,10 +104,10 @@ const BrowseMCQSeries = () => {
         />
 
         <div className="empty-container">
-          <h2>No MCQ Series Yet</h2>
-          <p>Create your first MCQ series to start studying</p>
+          <h2>No Table Quiz Series Yet</h2>
+          <p>Create your first table quiz series to start studying</p>
           <button onClick={handleCreateClick} className="primary-btn">
-            Create MCQ Series
+            Create Table Series
           </button>
         </div>
       </div>
@@ -117,7 +117,7 @@ const BrowseMCQSeries = () => {
   return (
     <div className="browse-container">
       <NavigationHeader
-        currentMode="mcq"
+        currentMode="tables"
         supportedModes={['flashcards', 'mcq', 'tables']}
         onNavigateDashboard={handleNavigateDashboard}
         onToggleMode={handleToggleMode}
@@ -136,16 +136,16 @@ const BrowseMCQSeries = () => {
         totalSeries={series.length}
       />
 
-      <MCQSeriesList
+      <TableSeriesList
         series={processedSeries}
         onSessionClick={handleSessionClick}
         onNewSession={handleNewSession}
         onEditSession={handleEditSession}
       />
 
-      {/* Modals - MCQ-specific */}
+      {/* Modals - Table-specific */}
       {modalState.type === 'recipe' && (
-        <MCQSessionRecipeModal
+        <TableSessionRecipeModal
           isOpen={modalState.isOpen}
           onClose={closeModal}
           onCreateSession={handleCreateCustomSession}
@@ -159,11 +159,11 @@ const BrowseMCQSeries = () => {
           onClose={closeModal}
           sessionData={modalState.selectedSession}
           seriesTitle={modalState.selectedSeries?.title}
-          isFlashcard={false}
+          studyType="table"
         />
       )}
     </div>
   );
 };
 
-export default BrowseMCQSeries;
+export default BrowseTableSeries;

@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { flashcardAPI } from '../services/api';
 import { mcqAPI } from '../services/mcqApi';
+import { tableQuizAPI } from '../services/tableQuizApi';
 
-export const useSessionStatsData = (sessionData, isFlashcard) => {
+export const useSessionStatsData = (sessionData, studyTypeOrIsFlashcard) => {
+  // Handle both old (boolean) and new (string) parameters for backward compatibility
+  const studyType = typeof studyTypeOrIsFlashcard === 'string'
+    ? studyTypeOrIsFlashcard
+    : (studyTypeOrIsFlashcard ? 'flashcard' : 'mcq');
   const [itemsWithContent, setItemsWithContent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -20,7 +25,7 @@ export const useSessionStatsData = (sessionData, isFlashcard) => {
       let items = [];
       let contentResponse;
 
-      if (isFlashcard) {
+      if (studyType === 'flashcard') {
         // Get flashcard content
         const cardIds = sessionData.cards?.map(card => card.cardId) || [];
         console.log('Fetching flashcard content for cardIds:', cardIds);
@@ -40,7 +45,7 @@ export const useSessionStatsData = (sessionData, isFlashcard) => {
             };
           });
         }
-      } else {
+      } else if (studyType === 'mcq') {
         // Get MCQ content
         const questionIds = sessionData.questions?.map(question => question.questionId) || [];
         console.log('Fetching MCQ content for questionIds:', questionIds);
@@ -60,6 +65,26 @@ export const useSessionStatsData = (sessionData, isFlashcard) => {
             };
           });
         }
+      } else if (studyType === 'table') {
+        // Get table quiz content
+        const tableIds = sessionData.tables?.map(table => table.tableId) || [];
+        console.log('Fetching table content for tableIds:', tableIds);
+
+        if (tableIds.length > 0) {
+          contentResponse = await tableQuizAPI.getByIds(tableIds);
+          const tablesContent = contentResponse.data || [];
+
+          // Combine session data with content
+          items = sessionData.tables.map(sessionTable => {
+            const content = tablesContent.find(table => table.tableId === sessionTable.tableId);
+            return {
+              id: sessionTable.tableId,
+              content: content || {},
+              interaction: sessionTable.interaction || {},
+              type: 'table'
+            };
+          });
+        }
       }
 
       console.log('Processed items with content:', items);
@@ -72,7 +97,7 @@ export const useSessionStatsData = (sessionData, isFlashcard) => {
     } finally {
       setLoading(false);
     }
-  }, [sessionData, isFlashcard]);
+  }, [sessionData, studyType]);
 
   useEffect(() => {
     fetchItemContent();

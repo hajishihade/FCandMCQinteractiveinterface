@@ -20,7 +20,7 @@ export const useMCQData = () => {
       // Fetch both MCQ series and MCQs for client-side filtering
       const [seriesResponse, mcqsResponse] = await Promise.all([
         mcqSeriesAPI.getAll({ limit: 100 }),
-        mcqAPI.getAll({ limit: 100 })
+        mcqAPI.getAll({ limit: 2000 }) // Increased to fetch all 1077+ questions
       ]);
 
       // Validate MCQ series response (Note: different response format)

@@ -9,6 +9,8 @@ import flashcardRoutes from './routes/flashcards.js';
 import seriesRoutes from './routes/series.js';
 import mcqRoutes from './routes/mcqs.js';
 import mcqSeriesRoutes from './routes/mcqSeries.js';
+import tableQuizRoutes from './routes/tableQuizzes.js';
+import tableSeriesRoutes from './routes/tableSeries.js';
 import { globalErrorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -45,6 +47,8 @@ const registerRoutes = () => {
   app.use('/api/series', seriesRoutes);
   app.use('/api/mcqs', mcqRoutes);
   app.use('/api/mcq-series', mcqSeriesRoutes);
+  app.use('/api/table-quizzes', tableQuizRoutes);
+  app.use('/api/table-series', tableSeriesRoutes);
 
   app.use(notFoundHandler);
   app.use(globalErrorHandler);

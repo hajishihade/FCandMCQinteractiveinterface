@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
-import { mcqAPI, mcqSeriesAPI, mcqSessionAPI } from '../services/mcqApi';
+import { tableQuizAPI, tableSeriesAPI, tableSessionAPI } from '../services/tableQuizApi';
 import './CreateSeries.css';
 
-const CreateMCQSeries = () => {
+const CreateTableSeries = () => {
   const navigate = useNavigate();
-  const [mcqs, setMcqs] = useState([]);
-  const [selectedQuestions, setSelectedQuestions] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [selectedTables, setSelectedTables] = useState([]);
   const [seriesTitle, setSeriesTitle] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [questionsPerPage] = useState(100);
+  const [tablesPerPage] = useState(100);
   const [filters, setFilters] = useState({
     subjects: [],
     chapters: [],
@@ -24,116 +24,106 @@ const CreateMCQSeries = () => {
   });
 
   useEffect(() => {
-    fetchMCQs();
+    fetchTables();
   }, []);
 
-  const fetchMCQs = async () => {
+  const fetchTables = async () => {
     try {
       setLoading(true);
-      const response = await mcqAPI.getAll({ limit: 2000 }); // Fetch all 1077+ questions
-      setMcqs(response.data);
+      const response = await tableQuizAPI.getAll({ limit: 2000 }); // Fetch all tables
+      setTables(response.data);
     } catch (error) {
-      console.error('Error fetching MCQs:', error);
-      setError('Failed to load MCQs');
+      console.error('Error fetching table quizzes:', error);
+      setError('Failed to load table quizzes');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleQuestionSelection = (questionId) => {
-    setSelectedQuestions(prev =>
-      prev.includes(questionId)
-        ? prev.filter(id => id !== questionId)
-        : [...prev, questionId]
+  const toggleTableSelection = (tableId) => {
+    setSelectedTables(prev =>
+      prev.includes(tableId)
+        ? prev.filter(id => id !== tableId)
+        : [...prev, tableId]
     );
   };
 
   // Get unique values for each filter level
   const getAvailableSubjects = () => {
-    const subjects = [...new Set(mcqs.map(mcq => mcq.subject).filter(Boolean))];
+    const subjects = [...new Set(tables.map(table => table.subject).filter(Boolean))];
     return subjects.map(subject => ({ value: subject, label: subject }));
   };
 
   const getAvailableChapters = () => {
-    let relevantMcqs = mcqs;
-
-    // Filter by selected subjects if any
+    let relevantTables = tables;
     if (filters.subjects.length > 0) {
-      relevantMcqs = relevantMcqs.filter(mcq =>
-        filters.subjects.some(subject => subject.value === mcq.subject)
+      relevantTables = relevantTables.filter(table =>
+        filters.subjects.some(subject => subject.value === table.subject)
       );
     }
-
-    const chapters = [...new Set(relevantMcqs.map(mcq => mcq.chapter).filter(Boolean))];
+    const chapters = [...new Set(relevantTables.map(table => table.chapter).filter(Boolean))];
     return chapters.map(chapter => ({ value: chapter, label: chapter }));
   };
 
   const getAvailableSections = () => {
-    let relevantMcqs = mcqs;
-
-    // Filter by selected subjects if any
+    let relevantTables = tables;
     if (filters.subjects.length > 0) {
-      relevantMcqs = relevantMcqs.filter(mcq =>
-        filters.subjects.some(subject => subject.value === mcq.subject)
+      relevantTables = relevantTables.filter(table =>
+        filters.subjects.some(subject => subject.value === table.subject)
       );
     }
-
-    // Filter by selected chapters if any
     if (filters.chapters.length > 0) {
-      relevantMcqs = relevantMcqs.filter(mcq =>
-        filters.chapters.some(chapter => chapter.value === mcq.chapter)
+      relevantTables = relevantTables.filter(table =>
+        filters.chapters.some(chapter => chapter.value === table.chapter)
       );
     }
-
-    const sections = [...new Set(relevantMcqs.map(mcq => mcq.section).filter(Boolean))];
+    const sections = [...new Set(relevantTables.map(table => table.section).filter(Boolean))];
     return sections.map(section => ({ value: section, label: section }));
   };
 
   const getAvailableTags = () => {
-    // Tags are independent - show all available tags from all MCQs
-    const tags = [...new Set(mcqs.flatMap(mcq => mcq.tags || []).filter(Boolean))];
+    const tags = [...new Set(tables.flatMap(table => table.tags || []).filter(Boolean))];
     return tags.map(tag => ({ value: tag, label: tag }));
   };
 
   const getAvailableSources = () => {
-    // Sources are independent - show all available sources from all MCQs
-    const sources = [...new Set(mcqs.map(mcq => mcq.source).filter(Boolean))];
+    const sources = [...new Set(tables.map(table => table.source).filter(Boolean))];
     return sources.map(source => ({ value: source, label: source }));
   };
 
-  // Filter MCQs based on all criteria
-  const filteredMCQs = mcqs.filter(mcq => {
+  // Filter tables based on all criteria
+  const filteredTables = tables.filter(table => {
     // Search filter
-    if (searchTerm && !mcq.question.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (searchTerm && !table.name.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
 
     // Subject filter (multi-select)
-    if (filters.subjects.length > 0 && !filters.subjects.some(subject => subject.value === mcq.subject)) {
+    if (filters.subjects.length > 0 && !filters.subjects.some(subject => subject.value === table.subject)) {
       return false;
     }
 
     // Chapter filter (multi-select)
-    if (filters.chapters.length > 0 && !filters.chapters.some(chapter => chapter.value === mcq.chapter)) {
+    if (filters.chapters.length > 0 && !filters.chapters.some(chapter => chapter.value === table.chapter)) {
       return false;
     }
 
     // Section filter (multi-select)
-    if (filters.sections.length > 0 && !filters.sections.some(section => section.value === mcq.section)) {
+    if (filters.sections.length > 0 && !filters.sections.some(section => section.value === table.section)) {
       return false;
     }
 
     // Tags filter (multi-select)
     if (filters.tags.length > 0) {
-      const mcqTags = mcq.tags || [];
-      const hasMatchingTag = filters.tags.some(tag => mcqTags.includes(tag.value));
+      const tableTags = table.tags || [];
+      const hasMatchingTag = filters.tags.some(tag => tableTags.includes(tag.value));
       if (!hasMatchingTag) {
         return false;
       }
     }
 
-    // Source filter (multi-select)
-    if (filters.sources.length > 0 && !filters.sources.some(source => source.value === mcq.source)) {
+    // Sources filter (multi-select)
+    if (filters.sources.length > 0 && !filters.sources.some(source => source.value === table.source)) {
       return false;
     }
 
@@ -141,80 +131,26 @@ const CreateMCQSeries = () => {
   });
 
   // Pagination for display (fetch all, show 100)
-  const totalPages = Math.ceil(filteredMCQs.length / questionsPerPage);
-  const startIndex = (currentPage - 1) * questionsPerPage;
-  const endIndex = startIndex + questionsPerPage;
-  const paginatedMCQs = filteredMCQs.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(filteredTables.length / tablesPerPage);
+  const startIndex = (currentPage - 1) * tablesPerPage;
+  const endIndex = startIndex + tablesPerPage;
+  const paginatedTables = filteredTables.slice(startIndex, endIndex);
 
   const handleSelectAll = () => {
-    if (selectedQuestions.length === filteredMCQs.length) {
-      setSelectedQuestions([]);
+    if (selectedTables.length === filteredTables.length) {
+      setSelectedTables([]);
     } else {
-      setSelectedQuestions(filteredMCQs.map(mcq => mcq.questionId));
+      setSelectedTables(filteredTables.map(table => table.tableId));
     }
   };
 
   // Reset to page 1 when filters change
-  const handleFilterChange = (filterType, value) => {
-    setFilters(prev => ({ ...prev, [filterType]: value }));
-    setCurrentPage(1);
-  };
-
   const handleSearchChange = (value) => {
     setSearchTerm(value);
     setCurrentPage(1);
   };
 
-  const handleCreateSeries = async () => {
-    const trimmedTitle = seriesTitle.trim();
-
-    // Basic input validation to prevent data corruption
-    if (!trimmedTitle) {
-      setError('Please enter a series title');
-      return;
-    }
-
-    if (trimmedTitle.length > 100) {
-      setError('Series title must be 100 characters or less');
-      return;
-    }
-
-    if (selectedQuestions.length === 0) {
-      setError('Please select at least one MCQ');
-      return;
-    }
-
-    setCreating(true);
-    setError('');
-
-    try {
-      // Step 1: Create the MCQ series
-      const seriesResponse = await mcqSeriesAPI.create(trimmedTitle);
-      const seriesId = seriesResponse.data.seriesId;
-
-      // Step 2: Automatically create first session with selected questions
-      const sessionResponse = await mcqSessionAPI.start(seriesId, selectedQuestions);
-      const sessionId = sessionResponse.data.sessionId;
-
-      // Step 3: Navigate to study the first session
-      navigate('/mcq-study', {
-        state: {
-          seriesId,
-          sessionId,
-          selectedQuestions,
-          mode: 'new' // Use new mode for fresh session
-        }
-      });
-
-    } catch (error) {
-      console.error('Error creating MCQ series:', error);
-      setError(error.response?.data?.message || 'Failed to create MCQ series');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  // Custom styles for react-select to match your theme
+  // Custom styles for Select components (EXACT SAME AS MCQ)
   const customStyles = {
     control: (provided, state) => ({
       ...provided,
@@ -250,11 +186,11 @@ const CreateMCQSeries = () => {
     multiValueLabel: (provided) => ({
       ...provided,
       color: 'white',
-      fontSize: '0.9rem'
+      fontWeight: '500'
     }),
     multiValueRemove: (provided) => ({
       ...provided,
-      color: 'rgba(255,255,255,0.6)',
+      color: 'rgba(255,255,255,0.8)',
       '&:hover': {
         backgroundColor: 'rgba(255,255,255,0.3)',
         color: 'white'
@@ -262,11 +198,7 @@ const CreateMCQSeries = () => {
     }),
     placeholder: (provided) => ({
       ...provided,
-      color: 'rgba(255,255,255,0.5)'
-    }),
-    input: (provided) => ({
-      ...provided,
-      color: 'white'
+      color: 'rgba(255,255,255,0.6)'
     }),
     singleValue: (provided) => ({
       ...provided,
@@ -291,10 +223,52 @@ const CreateMCQSeries = () => {
     })
   };
 
+  const handleCreateSeries = async () => {
+    const trimmedTitle = seriesTitle.trim();
+
+    if (!trimmedTitle) {
+      setError('Please enter a series title');
+      return;
+    }
+
+    if (selectedTables.length === 0) {
+      setError('Please select at least one table quiz');
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setError('');
+
+      // Create the series
+      const seriesResponse = await tableSeriesAPI.create(trimmedTitle);
+      const seriesId = seriesResponse.data.seriesId;
+
+      // Start a session with selected tables
+      const sessionResponse = await tableSessionAPI.start(seriesId, selectedTables);
+      const sessionId = sessionResponse.data.sessionId;
+
+      // Navigate to the new session
+      navigate('/table-quiz-session', {
+        state: {
+          seriesId,
+          sessionId,
+          selectedTables
+        }
+      });
+
+    } catch (error) {
+      console.error('Error creating table series:', error);
+      setError(`Failed to create series: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="create-series-loading">
-        <div className="loading-spinner">Loading MCQs...</div>
+        <div className="loading-spinner">Loading Table Quizzes...</div>
       </div>
     );
   }
@@ -303,7 +277,7 @@ const CreateMCQSeries = () => {
     <div className="create-series-container">
       <div className="create-series-header">
         <button
-          onClick={() => navigate('/browse-mcq-series')}
+          onClick={() => navigate('/browse-table-series')}
           className="back-btn"
         >
           ←
@@ -314,17 +288,17 @@ const CreateMCQSeries = () => {
         <input
           type="text"
           className="series-title-line"
-          placeholder="Enter the name of the MCQ series you want to create here and choose the questions"
+          placeholder="Enter the name of the Table Quiz series you want to create here and choose the table quizzes"
           value={seriesTitle}
           onChange={(e) => setSeriesTitle(e.target.value)}
           maxLength={100}
         />
         <button
           onClick={handleCreateSeries}
-          disabled={selectedQuestions.length === 0 || !seriesTitle.trim() || creating}
+          disabled={selectedTables.length === 0 || !seriesTitle.trim() || creating}
           className="start-btn-minimal"
         >
-          {creating ? 'Creating...' : `Start (${selectedQuestions.length})`}
+          {creating ? 'Creating...' : `Start (${selectedTables.length})`}
         </button>
       </div>
 
@@ -338,9 +312,8 @@ const CreateMCQSeries = () => {
             onChange={(selected) => setFilters(prev => ({
               ...prev,
               subjects: selected || [],
-              chapters: [], // Reset dependent filters
+              chapters: [],
               sections: []
-              // Keep tags and sources - they're independent
             }))}
             styles={customStyles}
             className="filter-select"
@@ -357,8 +330,7 @@ const CreateMCQSeries = () => {
             onChange={(selected) => setFilters(prev => ({
               ...prev,
               chapters: selected || [],
-              sections: [] // Reset dependent filter
-              // Keep tags and sources - they're independent
+              sections: []
             }))}
             styles={customStyles}
             className="filter-select"
@@ -376,7 +348,6 @@ const CreateMCQSeries = () => {
             onChange={(selected) => setFilters(prev => ({
               ...prev,
               sections: selected || []
-              // Don't reset tags or sources - they're independent
             }))}
             styles={customStyles}
             className="filter-select"
@@ -400,7 +371,6 @@ const CreateMCQSeries = () => {
             classNamePrefix="select"
             isClearable
             isSearchable
-            // Tags are always enabled - independent selection
           />
 
           <Select
@@ -417,19 +387,18 @@ const CreateMCQSeries = () => {
             classNamePrefix="select"
             isClearable
             isSearchable
-            // Sources are always enabled - independent selection
           />
         </div>
       </div>
 
       <div className="filter-summary">
         <span className="filter-count">
-          {filteredMCQs.length} MCQs found
+          {filteredTables.length} Table Quizzes found
         </span>
         <input
           type="text"
           className="search-line-small"
-          placeholder="search questions..."
+          placeholder="search table quizzes..."
           value={searchTerm}
           onChange={(e) => handleSearchChange(e.target.value)}
         />
@@ -437,9 +406,10 @@ const CreateMCQSeries = () => {
           className="select-all-btn"
           onClick={handleSelectAll}
         >
-          {selectedQuestions.length === filteredMCQs.length && filteredMCQs.length > 0
+          {selectedTables.length === filteredTables.length && filteredTables.length > 0
             ? 'Deselect All'
-            : 'Select All'}
+            : 'Select All'
+          }
         </button>
       </div>
 
@@ -450,36 +420,36 @@ const CreateMCQSeries = () => {
       )}
 
       <div className="flashcards-grid">
-        {filteredMCQs.length === 0 ? (
+        {filteredTables.length === 0 ? (
           <div className="no-flashcards-message">
-            No MCQs match your filters
+            No Table Quizzes match your filters
           </div>
         ) : (
-          paginatedMCQs.map((mcq) => (
-          <div
-            key={mcq.questionId}
-            className={`flashcard-item ${selectedQuestions.includes(mcq.questionId) ? 'selected' : ''}`}
-            onClick={() => toggleQuestionSelection(mcq.questionId)}
-          >
-            <div className="card-header">
-              <input
-                type="checkbox"
-                checked={selectedQuestions.includes(mcq.questionId)}
-                onChange={() => toggleQuestionSelection(mcq.questionId)}
-                className="card-checkbox"
-                onClick={(e) => e.stopPropagation()}
-              />
+          paginatedTables.map((table) => (
+            <div
+              key={table.tableId}
+              className={`flashcard-item ${selectedTables.includes(table.tableId) ? 'selected' : ''}`}
+              onClick={() => toggleTableSelection(table.tableId)}
+            >
+              <div className="card-header">
+                <input
+                  type="checkbox"
+                  checked={selectedTables.includes(table.tableId)}
+                  onChange={() => toggleTableSelection(table.tableId)}
+                  className="card-checkbox"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="card-content">
+                <h3 className="card-front">
+                  {table.name.length > 60
+                    ? table.name.substring(0, 60) + '...'
+                    : table.name
+                  }
+                </h3>
+              </div>
             </div>
-            <div className="card-content">
-              <h3 className="card-front">
-                {mcq.question.length > 60
-                  ? mcq.question.substring(0, 60) + '...'
-                  : mcq.question
-                }
-              </h3>
-            </div>
-          </div>
-        ))
+          ))
         )}
       </div>
 
@@ -510,7 +480,7 @@ const CreateMCQSeries = () => {
           </button>
 
           <span style={{ color: 'rgba(255,255,255,0.8)' }}>
-            Page {currentPage} of {totalPages} ({filteredMCQs.length} total questions)
+            Page {currentPage} of {totalPages} ({filteredTables.length} total tables)
           </span>
 
           <button
@@ -534,4 +504,4 @@ const CreateMCQSeries = () => {
   );
 };
 
-export default CreateMCQSeries;
+export default CreateTableSeries;

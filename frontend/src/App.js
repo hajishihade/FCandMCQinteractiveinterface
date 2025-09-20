@@ -11,6 +11,9 @@ import MCQSession from './pages/MCQSession';
 import BrowseMCQSeries from './pages/BrowseMCQSeries';
 import NewStudySession from './pages/NewStudySession';
 import NewMCQSession from './pages/NewMCQSession';
+import TableQuizSession from './pages/TableQuizSession';
+import BrowseTableSeries from './pages/BrowseTableSeries';
+import CreateTableSeries from './pages/CreateTableSeries';
 import './App.css';
 
 function AppContent() {
@@ -37,12 +40,15 @@ function AppContent() {
       <Route path="/" element={<ErrorBoundary><AnalyticsDashboard /></ErrorBoundary>} />
       <Route path="/browse-series" element={<ErrorBoundary><BrowseSeries /></ErrorBoundary>} />
       <Route path="/browse-mcq-series" element={<ErrorBoundary><BrowseMCQSeries /></ErrorBoundary>} />
+      <Route path="/browse-table-series" element={<ErrorBoundary><BrowseTableSeries /></ErrorBoundary>} />
+      <Route path="/create-table-series" element={<ErrorBoundary><CreateTableSeries /></ErrorBoundary>} />
       <Route path="/create-series" element={<ErrorBoundary><CreateSeries /></ErrorBoundary>} />
       <Route path="/study" element={<ErrorBoundary><StudySession /></ErrorBoundary>} />
       <Route path="/new-study" element={<ErrorBoundary><NewStudySession /></ErrorBoundary>} />
       <Route path="/create-mcq-series" element={<ErrorBoundary><CreateMCQSeries /></ErrorBoundary>} />
       <Route path="/mcq-study" element={<ErrorBoundary><MCQSession /></ErrorBoundary>} />
       <Route path="/new-mcq-study" element={<ErrorBoundary><NewMCQSession /></ErrorBoundary>} />
+      <Route path="/table-quiz-session" element={<ErrorBoundary><TableQuizSession /></ErrorBoundary>} />
       <Route
         path="/dashboard"
         element={
