@@ -64,7 +64,7 @@ const flashcardSchema = new mongoose.Schema({
  * @returns {Promise<Object|null>} Flashcard document or null
  */
 flashcardSchema.statics.findByCardId = async function(cardId) {
-  return await this.findOne({ cardId: cardId });
+  return await this.findOne({ cardId: cardId }).lean();  // Optimized for read-only
 };
 
 /**
@@ -75,7 +75,7 @@ flashcardSchema.statics.findByCardId = async function(cardId) {
  * Used by session controllers to batch-load cards
  */
 flashcardSchema.statics.findByCardIds = async function(cardIds) {
-  return await this.find({ cardId: { $in: cardIds } });
+  return await this.find({ cardId: { $in: cardIds } }).lean();  // Optimized for read-only
 };
 
 /**
@@ -85,7 +85,7 @@ flashcardSchema.statics.findByCardIds = async function(cardIds) {
  * Warning: Use with pagination in production
  */
 flashcardSchema.statics.getAllFlashcards = async function() {
-  return await this.find({});
+  return await this.find({}).lean();  // Optimized for read-only
 };
 
 const Flashcard = mongoose.model('Flashcard', flashcardSchema);

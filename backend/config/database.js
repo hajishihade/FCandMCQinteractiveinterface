@@ -48,8 +48,13 @@ const connectDB = async () => {
       throw new Error('CONTENT_MONGODB_URI environment variable is required');
     }
 
-    // Connect with default options (connection pooling enabled)
-    const conn = await mongoose.connect(contentDbUri);
+    // Connect with optimized connection pool settings
+    const conn = await mongoose.connect(contentDbUri, {
+      maxPoolSize: 10,          // Maximum number of connections in the pool
+      minPoolSize: 2,           // Minimum number of connections to maintain
+      socketTimeoutMS: 45000,   // How long to wait for socket operations
+      serverSelectionTimeoutMS: 5000,  // How long to wait for server selection
+    });
     console.log(`Content Database Connected: ${conn.connection.host} (Database: content)`);
     return conn;
   } catch (error) {

@@ -15,7 +15,12 @@ const connectSeriesDB = async () => {
       throw new Error('SERIES_MONGODB_URI environment variable is required');
     }
 
-    await seriesConnection.openUri(seriesDbUri);
+    await seriesConnection.openUri(seriesDbUri, {
+      maxPoolSize: 10,          // Maximum number of connections in the pool
+      minPoolSize: 2,           // Minimum number of connections to maintain
+      socketTimeoutMS: 45000,   // How long to wait for socket operations
+      serverSelectionTimeoutMS: 5000,  // How long to wait for server selection
+    });
     console.log(`Series Database Connected: ${seriesConnection.host} (Database: series)`);
     return seriesConnection;
   } catch (error) {

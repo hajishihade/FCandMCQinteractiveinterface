@@ -9,6 +9,7 @@
  */
 
 import MCQ from '../models/MCQ.js';
+import logger from '../utils/logger.js';
 
 class MCQController {
 
@@ -84,7 +85,7 @@ class MCQController {
       });
 
     } catch (error) {
-      console.error('Error fetching MCQs:', error);
+      logger.error('Error fetching MCQs:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch MCQs',
