@@ -1,28 +1,62 @@
+/**
+ * Browse MCQ Series Page
+ *
+ * Main interface for viewing and managing MCQ study series.
+ * Displays all MCQ series with their sessions and provides
+ * navigation to study or create new series.
+ *
+ * Architecture:
+ * - Uses 3 specialized hooks for data, filtering, and actions
+ * - Component composition with shared and MCQ-specific components
+ * - Modal system for session creation and stats viewing
+ *
+ * Features:
+ * - View all MCQ series with session counts
+ * - Filter series by content (subjects, chapters, sections)
+ * - Continue existing sessions
+ * - Start new sessions with custom question selection
+ * - View detailed session statistics
+ * - Progressive loading (no full-page blocks)
+ *
+ * Performance:
+ * - Data cached with sessionStorage
+ * - Client-side filtering for instant results
+ * - Prefetch on navigation hover
+ * - No loading screens after initial load
+ */
+
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// MCQ Custom Hooks
+// MCQ-specific hooks for clean separation of concerns
 import { useMCQData } from '../hooks/useMCQData';
 import { useMCQFiltering } from '../hooks/useMCQFiltering';
 import { useMCQSessionActions } from '../hooks/useMCQSessionActions';
 
-// MCQ Components
+// Component imports
 import { MCQSeriesList } from '../components/mcq';
-
-// Shared Components (reuse from flashcard system)
 import { NavigationHeader, FilterSection } from '../components/series';
 
-// Modals (enhanced)
+// Modal components for session management
 import MCQSessionRecipeModal from '../components/MCQSessionRecipeModal';
 import SessionStatsModal from '../components/SessionStatsModal';
 
-// Styles (reuse existing)
+// Shared styles
 import './BrowseSeries.css';
 
+/**
+ * Browse MCQ Series Component
+ *
+ * Central hub for MCQ series management and navigation
+ * @returns {JSX.Element} MCQ series browsing interface
+ */
 const BrowseMCQSeries = () => {
   const navigate = useNavigate();
 
-  // Data fetching hook (MCQ-specific)
+  /**
+   * Data management hook
+   * Handles fetching and caching of series and MCQ data
+   */
   const {
     series,
     allMCQs,
@@ -32,18 +66,24 @@ const BrowseMCQSeries = () => {
     fetchData
   } = useMCQData();
 
-  // Filtering hook (MCQ-specific)
+  /**
+   * Filtering logic hook
+   * Manages client-side filtering with dropdown controls
+   */
   const {
     filters,
     dropdownOpen,
-    processedSeries,
+    processedSeries,  // Series filtered based on content
     handleFilterToggle,
     toggleDropdown,
     getDropdownText,
     clearFilters
   } = useMCQFiltering(series, allMCQs);
 
-  // Session actions hook (MCQ-specific)
+  /**
+   * Session action handlers
+   * Manages modals and navigation for sessions
+   */
   const {
     modalState,
     handleSessionClick,

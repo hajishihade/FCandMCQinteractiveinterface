@@ -6,11 +6,16 @@
 - **server.js** - Fully documented with JSDoc comments
 - **controllers/mcqController.js** - Documented with performance notes
 - **models/MCQ.js** - Schema documented with index explanations
+- **config/database.js** - Connection management with examples
 
 ### Frontend
 - **utils/cache.js** - Complete JSDoc with examples
 - **utils/prefetch.js** - Documented with performance impact notes
 - **hooks/useMCQData.js** - Comprehensive hook documentation
+- **pages/AnalyticsDashboard.js** - Main dashboard documentation
+- **pages/CreateMCQSeries.js** - Page component with state docs
+- **services/mcqApi.js** - Full API service documentation
+- **components/NavigationHeader.js** - Navigation with prefetch docs
 
 ## 📝 Files Requiring Documentation
 
@@ -85,9 +90,9 @@
 
 ## 📊 Documentation Coverage
 
-- **Backend**: ~15% documented
-- **Frontend**: ~10% documented
-- **Overall**: ~12% documented
+- **Backend**: ~25% documented (4 of 16 core files)
+- **Frontend**: ~20% documented (7 of 35 core files)
+- **Overall**: ~22% documented (11 of 51 core files)
 
 ## 🎯 Documentation Standards
 

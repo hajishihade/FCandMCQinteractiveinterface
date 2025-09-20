@@ -1,9 +1,51 @@
+/**
+ * useSeriesData Hook
+ *
+ * Central data management hook for flashcard series and content.
+ * Mirrors the architecture of useMCQData for consistency.
+ *
+ * Features:
+ * - Intelligent caching with sessionStorage
+ * - Lazy state initialization from cache
+ * - Parallel API calls for performance
+ * - Filter options extraction from flashcard data
+ * - Force refresh capability
+ *
+ * Performance optimizations:
+ * - Initializes from cache to avoid loading state
+ * - Batches API calls with Promise.all
+ * - 5-minute cache duration
+ * - Returns cached data instantly on repeat renders
+ *
+ * Data Flow:
+ * 1. Check cache first
+ * 2. If cache hit, return immediately (no loading state)
+ * 3. If cache miss, fetch from API
+ * 4. Process and cache response
+ * 5. Extract filter options from flashcard metadata
+ */
+
 import { useState, useCallback } from 'react';
 import { seriesAPI, flashcardAPI } from '../services/api';
 import { getCachedData, setCachedData, CACHE_KEYS } from '../utils/cache';
 
+/**
+ * Hook for managing flashcard series data with caching
+ *
+ * @returns {Object} Series data and operations
+ * @returns {Array} series - List of flashcard series
+ * @returns {Array} allFlashcards - All flashcard content
+ * @returns {Object} filterOptions - Available filter options
+ * @returns {boolean} loading - Loading state
+ * @returns {string} error - Error message if any
+ * @returns {Function} fetchData - Function to refresh data
+ * @returns {Function} clearCache - Function to clear flashcard cache
+ */
 export const useSeriesData = () => {
-  // Initialize with cached data if available
+  /**
+   * Initialize state with cached data if available
+   * Using lazy initialization prevents unnecessary re-renders
+   */
   const [series, setSeries] = useState(() => getCachedData(CACHE_KEYS.FLASHCARD_SERIES) || []);
   const [allFlashcards, setAllFlashcards] = useState(() => getCachedData(CACHE_KEYS.FLASHCARD_LIST) || []);
   const [filterOptions, setFilterOptions] = useState(() =>
@@ -14,7 +56,10 @@ export const useSeriesData = () => {
     }
   );
 
-  // Start loading only if we don't have cached data
+  /**
+   * Loading state starts false if cache exists
+   * This prevents loading spinners on cached page visits
+   */
   const [loading, setLoading] = useState(() => {
     const hasCached = getCachedData(CACHE_KEYS.FLASHCARD_SERIES) &&
                       getCachedData(CACHE_KEYS.FLASHCARD_LIST);
@@ -22,9 +67,13 @@ export const useSeriesData = () => {
   });
   const [error, setError] = useState('');
 
+  /**
+   * Fetch flashcard data from API or cache
+   * @param {boolean} forceRefresh - Skip cache and fetch fresh data
+   */
   const fetchData = useCallback(async (forceRefresh = false) => {
     try {
-      // Check cache first unless forced refresh
+      // Try cache first for instant loading
       if (!forceRefresh) {
         const cachedSeries = getCachedData(CACHE_KEYS.FLASHCARD_SERIES);
         const cachedFlashcards = getCachedData(CACHE_KEYS.FLASHCARD_LIST);

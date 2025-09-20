@@ -1,34 +1,76 @@
+/**
+ * Flashcard Series Controller
+ *
+ * Handles all operations related to flashcard series management,
+ * including CRUD operations, session management, and content-based filtering.
+ *
+ * Features:
+ * - Series creation and management
+ * - Session tracking with progress
+ * - Content-based filtering (filters by actual flashcard content)
+ * - Interaction recording for analytics
+ * - Session completion tracking
+ *
+ * Content Filtering Logic:
+ * - Extracts cardIds from all sessions
+ * - Fetches flashcard metadata
+ * - Filters series based on flashcard content (subject/chapter/section)
+ * - This allows filtering by what's inside sessions, not just series metadata
+ *
+ * Performance considerations:
+ * - Uses pagination for large datasets
+ * - Batches flashcard lookups
+ * - Client-side filtering for better UX
+ */
+
 import FlashcardSeries from '../models/FlashcardSeries.js';
 import Flashcard from '../models/Flashcard.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
+/**
+ * Get all flashcard series with advanced filtering
+ *
+ * @route GET /api/series
+ * @query {number} page - Page number for pagination
+ * @query {number} limit - Items per page (default: 10)
+ * @query {string} status - Filter by status (active/completed)
+ * @query {string} search - Search series by title
+ * @query {string} subject - Filter by flashcard subject
+ * @query {string} chapter - Filter by flashcard chapter
+ * @query {string} section - Filter by flashcard section
+ *
+ * Content filtering searches inside sessions for matching flashcards
+ */
 const getAllFlashcardSeries = asyncHandler(async (req, res) => {
   const { page, limit, skip } = req.pagination || { page: 1, limit: 10, skip: 0 };
   const { status, search, subject, chapter, section } = req.query;
 
   let query = {};
 
-  // Filter by status
+  // Basic filters
   if (status && ['active', 'completed'].includes(status)) {
     query.status = status;
   }
 
-  // Search by title
   if (search) {
     query.title = { $regex: search, $options: 'i' };
   }
 
+  // Fetch series sorted by most recent
   let series = await FlashcardSeries.find(query).sort({ startedAt: -1 });
 
-  // Content-based filtering (subject, chapter, section)
+  /**
+   * Content-based filtering implementation
+   * Filters series by the content of flashcards within sessions
+   * This is more complex but provides better UX
+   */
   if (subject || chapter || section) {
     console.log(`Filtering series by content: subject=${subject}, chapter=${chapter}, section=${section}`);
 
-    // For each series, check if any of its sessions contain flashcards matching the criteria
     const filteredFlashcardSeries = [];
 
     for (const seriesItem of series) {
-      // Extract all cardIds from all sessions in this series
+      // Extract all unique cardIds from all sessions
       const allCardIds = [];
       seriesItem.sessions.forEach(session => {
         if (session.cards && Array.isArray(session.cards)) {
@@ -41,10 +83,9 @@ const getAllFlashcardSeries = asyncHandler(async (req, res) => {
       });
 
       if (allCardIds.length > 0) {
-        // Remove duplicates
         const uniqueCardIds = [...new Set(allCardIds)];
 
-        // Fetch flashcard metadata for these cardIds
+        // Batch fetch flashcard metadata for performance
         const flashcards = await Flashcard.findByCardIds(uniqueCardIds);
 
         // Check if any flashcard matches the filter criteria

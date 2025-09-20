@@ -1,31 +1,72 @@
+/**
+ * MCQ Study Session Page
+ *
+ * Interactive study session for Multiple Choice Questions with
+ * comprehensive interaction tracking and performance analytics.
+ *
+ * Features:
+ * - Continue existing sessions from where user left off
+ * - Start new sessions with selected questions
+ * - Track answer selection, confidence, and difficulty
+ * - Time tracking per question
+ * - Immediate feedback with explanations
+ * - Session results summary
+ * - Progress persistence across page refreshes
+ *
+ * Interaction Flow:
+ * 1. Select answer → Show explanation → Rate difficulty/confidence → Next question
+ * 2. All interactions saved to database for analytics
+ * 3. Resume capability if user leaves mid-session
+ *
+ * Performance:
+ * - Questions loaded in batch to reduce API calls
+ * - Session state persisted to localStorage
+ * - Smooth transitions between questions
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { mcqAPI, mcqSeriesAPI, mcqSessionAPI } from '../services/mcqApi';
 import { sessionPersistence } from '../utils/sessionPersistence';
 import './MCQSession.css';
 
+/**
+ * MCQ Study Session Component
+ *
+ * Manages the complete MCQ study experience with tracking
+ * @returns {JSX.Element} Interactive MCQ study interface
+ */
 const MCQSession = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Session identification
   const [seriesId, setSeriesId] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
+  // Question interaction state
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [showingAnswer, setShowingAnswer] = useState(false);
-  const [confidence, setConfidence] = useState('');
-  const [difficulty, setDifficulty] = useState('');
-  const [startTime, setStartTime] = useState(null);
+  const [confidence, setConfidence] = useState('');     // High/Low
+  const [difficulty, setDifficulty] = useState('');     // Easy/Medium/Hard
+  const [startTime, setStartTime] = useState(null);     // Track time per question
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Session flow state
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [sessionResults, setSessionResults] = useState([]);
 
+  // Loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  /**
+   * Initialize session on mount
+   * Handles both new sessions and continuing existing ones
+   */
   useEffect(() => {
     const sessionInfo = location.state;
 
@@ -35,11 +76,9 @@ const MCQSession = () => {
     }
 
     if (sessionInfo.mode === 'continue') {
-      // Continue existing session
       continueExistingSession(sessionInfo);
     } else {
-      // Start new session (from CreateMCQSeries)
-      initializeSession(sessionInfo);
+      initializeSession(sessionInfo);  // New session from CreateMCQSeries
     }
   }, [location.state, navigate]);
 
