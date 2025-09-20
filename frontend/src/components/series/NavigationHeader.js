@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { prefetchRoute } from '../../utils/prefetch';
 
 const NavigationHeader = React.memo(({
   currentMode = 'flashcards', // 'flashcards' | 'mcq' | 'tables'
@@ -10,11 +11,17 @@ const NavigationHeader = React.memo(({
   // No-op function to avoid creating new functions on each render
   const noOp = useCallback(() => {}, []);
 
-  // Mode display names
+  // Mode display names and routes
   const modeDisplayNames = {
     flashcards: 'Flashcards',
     mcq: 'MCQ',
     tables: 'Tables'
+  };
+
+  const modeRoutes = {
+    flashcards: '/browse-series',
+    mcq: '/browse-mcq-series',
+    tables: '/browse-table-series'
   };
 
   // Handle mode toggle with backward compatibility
@@ -48,6 +55,12 @@ const NavigationHeader = React.memo(({
             key={mode}
             className={`toggle-btn ${currentMode === mode ? 'active' : ''}`}
             onClick={currentMode === mode ? noOp : () => handleModeToggle(mode)}
+            onMouseEnter={() => {
+              // Prefetch data when hovering over mode button
+              if (currentMode !== mode) {
+                prefetchRoute(modeRoutes[mode]);
+              }
+            }}
           >
             {modeDisplayNames[mode]}
           </button>
