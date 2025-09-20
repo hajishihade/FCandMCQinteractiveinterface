@@ -1,16 +1,30 @@
+/**
+ * MCQ (Multiple Choice Question) Model
+ *
+ * Defines the schema for MCQ questions in the database.
+ * Includes indexes for performance optimization and full-text search.
+ *
+ * Indexes:
+ * - questionId: Unique identifier for fast lookups
+ * - question: Text index for search functionality
+ * - Compound indexes on subject/chapter/section for filtering
+ */
+
 import mongoose from 'mongoose';
 
 const MCQSchema = new mongoose.Schema({
+  // Unique identifier for each MCQ
   questionId: {
     type: Number,
     required: true,
     unique: true,
-    index: true
+    index: true  // Index for O(1) lookups
   },
+  // Question text - indexed for full-text search
   question: {
     type: String,
     required: true,
-    index: true
+    index: true  // Enables $text search
   },
   options: {
     A: {

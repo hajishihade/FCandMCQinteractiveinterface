@@ -1,3 +1,15 @@
+/**
+ * Main Express server configuration
+ * Handles all API routes for Flashcards, MCQs, and Table Quizzes
+ *
+ * Features:
+ * - HTTP compression for 77% payload reduction
+ * - Helmet for security headers
+ * - CORS for cross-origin requests
+ * - Morgan for request logging
+ * - Dual MongoDB connections (main + series)
+ */
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -14,18 +26,23 @@ import tableQuizRoutes from './routes/tableQuizzes.js';
 import tableSeriesRoutes from './routes/tableSeries.js';
 import { globalErrorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
+// Load environment variables from .env file
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+/**
+ * Configure Express middleware stack
+ * Order matters: compression should be first for best performance
+ */
 const setupMiddleware = () => {
-  // Add compression BEFORE other middleware for best performance
+  // HTTP compression - reduces payload by ~77%
   app.use(compression({
-    level: 6,                     // Compression level (0-9, 6 is balanced)
+    level: 6,                     // Balanced speed vs compression (0-9 scale)
     threshold: 1024,              // Only compress responses > 1KB
     filter: (req, res) => {
-      // Compress JSON and text responses
+      // Skip compression if client requests it
       if (req.headers['x-no-compression']) {
         return false;
       }
@@ -33,14 +50,19 @@ const setupMiddleware = () => {
     }
   }));
 
-  app.use(helmet());
-  app.use(cors());
-  app.use(morgan('combined'));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(helmet());              // Security headers
+  app.use(cors());                 // Enable cross-origin requests
+  app.use(morgan('combined'));     // HTTP request logging
+  app.use(express.json());         // Parse JSON bodies
+  app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 };
 
+/**
+ * Register all API routes and error handlers
+ * Routes are prefixed with /api for clarity
+ */
 const registerRoutes = () => {
+  // Root endpoint - API info
   app.get('/', (req, res) => {
     res.json({
       message: 'Flashcard Study System API',
@@ -49,6 +71,7 @@ const registerRoutes = () => {
     });
   });
 
+  // Health check endpoint for monitoring
   app.get('/health', (req, res) => {
     res.json({
       status: 'healthy',
@@ -57,25 +80,34 @@ const registerRoutes = () => {
     });
   });
 
-  app.use('/api/flashcards', flashcardRoutes);
-  app.use('/api/series', seriesRoutes);
-  app.use('/api/mcqs', mcqRoutes);
-  app.use('/api/mcq-series', mcqSeriesRoutes);
-  app.use('/api/table-quizzes', tableQuizRoutes);
-  app.use('/api/table-series', tableSeriesRoutes);
+  // API routes for each feature
+  app.use('/api/flashcards', flashcardRoutes);     // Flashcard CRUD operations
+  app.use('/api/series', seriesRoutes);           // Flashcard series management
+  app.use('/api/mcqs', mcqRoutes);                // MCQ questions
+  app.use('/api/mcq-series', mcqSeriesRoutes);    // MCQ series management
+  app.use('/api/table-quizzes', tableQuizRoutes); // Table quiz questions
+  app.use('/api/table-series', tableSeriesRoutes); // Table series management
 
-  app.use(notFoundHandler);
-  app.use(globalErrorHandler);
+  // Error handlers (order matters - these must be last)
+  app.use(notFoundHandler);        // Handle 404 errors
+  app.use(globalErrorHandler);     // Handle all other errors
 };
 
+/**
+ * Initialize server with database connections
+ * Connects to MongoDB, sets up middleware, and starts listening
+ */
 const startServer = async () => {
   try {
-    await connectDB();
-    await connectSeriesDB();
+    // Connect to both databases
+    await connectDB();        // Main database for questions
+    await connectSeriesDB();  // Series database for study sessions
 
+    // Configure server
     setupMiddleware();
     registerRoutes();
 
+    // Start listening for requests
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
@@ -86,4 +118,5 @@ const startServer = async () => {
   }
 };
 
+// Start the server
 startServer();

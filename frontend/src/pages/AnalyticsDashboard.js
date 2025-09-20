@@ -1,3 +1,29 @@
+/**
+ * Analytics Dashboard Page
+ *
+ * Main entry point for the study platform. Displays comprehensive
+ * analytics about user's study performance across all formats
+ * (Flashcards, MCQs, and Table Quizzes).
+ *
+ * Features:
+ * - Real-time performance metrics from MongoDB
+ * - Subject-wise analytics breakdown
+ * - Active session management
+ * - Weak areas identification
+ * - Format comparison charts
+ * - Quick navigation to study modes
+ *
+ * Component Architecture:
+ * - Uses 7 specialized widget components
+ * - 3 custom hooks for data management
+ * - Memoized calculations for performance
+ *
+ * Performance optimizations:
+ * - Lazy loading of analytics data
+ * - Memoized calculations in hooks
+ * - Component-level code splitting
+ */
+
 import React, { useEffect } from 'react';
 
 // Analytics Custom Hooks
@@ -5,7 +31,7 @@ import { useAnalyticsData } from '../hooks/useAnalyticsData';
 import { useAnalyticsCalculations } from '../hooks/useAnalyticsCalculations';
 import { useAnalyticsNavigation } from '../hooks/useAnalyticsNavigation';
 
-// Analytics Components
+// Analytics Components - Each widget is a specialized component
 import {
   AnalyticsHeader,
   OverallPerformanceWidget,
@@ -16,11 +42,19 @@ import {
   StudyAccessFooter
 } from '../components/analytics';
 
-// Styles (reuse existing)
+// Styles
 import './AnalyticsDashboard.css';
 
+/**
+ * Analytics Dashboard Component
+ *
+ * Provides comprehensive study analytics with real-time data
+ * from MongoDB. Serves as the main hub for the application.
+ *
+ * @returns {JSX.Element} Rendered analytics dashboard
+ */
 const AnalyticsDashboard = () => {
-  // Data fetching hook
+  // Fetch raw analytics data from API
   const {
     rawData,
     loading,
@@ -28,18 +62,18 @@ const AnalyticsDashboard = () => {
     fetchAnalyticsData
   } = useAnalyticsData();
 
-  // Analytics processing hook (memoized)
+  // Process raw data into analytics metrics (memoized for performance)
   const {
     analytics
   } = useAnalyticsCalculations(rawData);
 
-  // Navigation hook
+  // Handle navigation to study sessions
   const {
     handleSessionResume,
     handleStartStudying
   } = useAnalyticsNavigation();
 
-  // Fetch data on mount
+  // Fetch analytics data on component mount
   useEffect(() => {
     fetchAnalyticsData();
   }, [fetchAnalyticsData]);
